@@ -1,0 +1,26 @@
+{
+  "name": "Google Sheets Chart Importer",
+  "id": "1541032430174166025",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma", "slides"],
+  "networkAccess": {
+    "allowedDomains": [
+      "https://docs.google.com",
+      "https://drive.google.com",
+      "https://lh1.googleusercontent.com",
+      "https://lh2.googleusercontent.com",
+      "https://lh3.googleusercontent.com",
+      "https://lh4.googleusercontent.com",
+      "https://lh5.googleusercontent.com",
+      "https://lh6.googleusercontent.com",
+      "https://docs.googleusercontent.com",
+      "https://ssl.gstatic.com",
+      "https://r.jina.ai",
+      "https://images.weserv.nl"
+    ]
+  },
+  "documentAccess": "dynamic-page",
+  "permissions": ["currentuser"]
+}

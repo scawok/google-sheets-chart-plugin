@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #0a0a0a;
+      color: #ffffff;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%);
+      color: white;
+      padding: 24px 20px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(45deg, rgba(255,255,255,0.05) 0%, transparent 50%, rgba(255,255,255,0.05) 100%);
+      pointer-events: none;
+    }
+    
+    .header h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .tabs {
+      display: flex;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333333;
+    }
+    
+    .tab {
+      flex: 1;
+      padding: 12px 16px;
+      text-align: center;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12px;
+      color: #8a8a8a;
+      background: transparent;
+      border: none;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    
+    .tab.active {
+      background: #0a0a0a;
+      color: #ffffff;
+      border-bottom: 3px solid #666666;
+    }
+    
+    .tab:hover:not(.active) {
+      background: #2a2a2a;
+      color: #ffffff;
+    }
+    
+    .tab-content {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+      background: #0a0a0a;
+    }
+    
+    .tab-panel {
+      display: none;
+    }
+    
+    .tab-panel.active {
+      display: block;
+    }
+    
+    .form-group {
+      margin-bottom: 24px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      color: #ffffff;
+      font-size: 12px;
+      letter-spacing: 0.3px;
+    }
+    
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #333333;
+      border-radius: 8px;
+      font-size: 13px;
+      transition: all 0.3s ease;
+      background: #1a1a1a;
+      color: #ffffff;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    .form-group input:focus {
+      outline: none;
+      border-color: #666666;
+      box-shadow: 0 0 0 4px rgba(102, 102, 102, 0.15);
+      background: #2a2a2a;
+    }
+    
+    .form-group input::placeholder {
+      color: #8a8a8a;
+    }
+    
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 24px 0;
+    }
+    
+    .btn {
+      padding: 12px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #666666 0%, #555555 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(102, 102, 102, 0.3);
+      border: none;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 102, 102, 0.4);
+      background: linear-gradient(135deg, #777777 0%, #666666 100%);
+    }
+    
+    .btn-secondary {
+      background: #1a1a1a;
+      color: #ffffff;
+      border: 2px solid #333333;
+    }
+    
+    .btn-secondary:hover {
+      background: #2a2a2a;
+      border-color: #666666;
+      transform: translateY(-1px);
+    }
+    
+    .btn-danger {
+      background: linear-gradient(135deg, #555555 0%, #444444 100%);
+      color: white;
+      border: none;
+    }
+    
+    .btn-danger:hover {
+      background: linear-gradient(135deg, #666666 0%, #555555 100%);
+      transform: translateY(-1px);
+    }
+    
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    
+    .help-card {
+      background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+      border: 1px solid #333333;
+      border-radius: 16px;
+      padding: 24px;
+      margin-top: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .help-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #666666 0%, #555555 50%, #666666 100%);
+    }
+    
+    .help-card h3 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      color: #ffffff;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    
+    .help-steps {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      counter-reset: step-counter;
+    }
+    
+    .help-steps li {
+      padding: 8px 0;
+      padding-left: 28px;
+      position: relative;
+      color: #b8b8b8;
+      line-height: 1.4;
+      font-size: 12px;
+    }
+    
+    .help-steps li::before {
+      content: counter(step-counter);
+      counter-increment: step-counter;
+      position: absolute;
+      left: 0;
+      top: 8px;
+      background: linear-gradient(135deg, #666666 0%, #555555 100%);
+      color: white;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(102, 102, 102, 0.3);
+    }
+    
+    .chart-grid {
+      display: grid;
+      gap: 12px;
+    }
+    
+    .chart-card {
+      background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+      border: 1px solid #333333;
+      border-radius: 16px;
+      padding: 20px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .chart-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent 0%, #666666 50%, transparent 100%);
+    }
+    
+    .chart-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 102, 102, 0.2);
+      border-color: #666666;
+    }
+    
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    
+    .chart-name {
+      font-weight: 700;
+      color: #ffffff;
+      font-size: 13px;
+      margin: 0;
+      letter-spacing: -0.2px;
+    }
+    
+    .chart-date {
+      font-size: 10px;
+      color: #b8b8b8;
+      background: #2a2a2a;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    
+    .chart-url {
+      font-size: 11px;
+      color: #b8b8b8;
+      margin: 10px 0;
+      padding: 10px;
+      background: #0a0a0a;
+      border-radius: 6px;
+      word-break: break-all;
+      font-family: 'Monaco', 'Menlo', monospace;
+      border: 1px solid #2a2a3e;
+    }
+    
+    .chart-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 12px;
+    }
+    
+    .chart-actions .btn {
+      padding: 6px 10px;
+      font-size: 11px;
+      flex: 1;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #8a8a8a;
+    }
+    
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      opacity: 0.4;
+    }
+    
+    .empty-state h3 {
+      color: #ffffff;
+      font-weight: 700;
+      margin: 0 0 8px 0;
+      font-size: 14px;
+    }
+    
+    .empty-state p {
+      color: #b8b8b8;
+      font-size: 12px;
+      line-height: 1.4;
+      margin: 0;
+    }
+    
+    .error-panel {
+      background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+      border: 1px solid #666666;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 20px;
+      display: none;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .error-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, #666666 0%, #555555 100%);
+    }
+    
+    .error-panel.show {
+      display: block;
+    }
+    
+    .error-message {
+      color: #cccccc;
+      font-size: 12px;
+      margin-bottom: 12px;
+      word-break: break-word;
+      line-height: 1.4;
+      font-weight: 500;
+    }
+    
+    .error-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .error-actions .btn {
+      padding: 6px 10px;
+      font-size: 11px;
+    }
+    
+    .icon {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+    }
+    
+
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Google Sheets Chart Importer</h1>
+  </div>
+  
+  <div class="tabs">
+    <button class="tab active" data-tab="insert">Insert</button>
+    <button class="tab" data-tab="help">Help</button>
+    <button class="tab" data-tab="history">History</button>
+  </div>
+  
+  <div class="tab-content">
+    <!-- Insert Chart Tab -->
+    <div class="tab-panel active" id="insert-panel">
+      <div class="form-group">
+        <label for="chartName">Chart Name</label>
+        <input type="text" id="chartName" placeholder="My Chart (optional)">
+      </div>
+      
+      <div class="form-group">
+        <label for="chartUrl">Google Sheets Chart URL</label>
+        <input type="text" id="chartUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
+      </div>
+      
+      <div class="button-group">
+        <button class="btn btn-primary" id="insertBtn">
+          Insert Chart
+        </button>
+        <button class="btn btn-secondary" id="updateBtn">
+          Update Selected
+        </button>
+        <button class="btn btn-secondary" id="updateAllBtn">
+          Update All
+        </button>
+      </div>
+      
+      <div class="error-panel" id="errorPanel">
+        <div class="error-message" id="errorMessage"></div>
+        <div class="error-actions">
+          <button class="btn btn-secondary" id="copyErrorBtn">Copy</button>
+          <button class="btn btn-secondary" id="clearErrorBtn">Clear</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Help Tab -->
+    <div class="tab-panel" id="help-panel">
+      <div class="help-card">
+        <h3><span>📋</span> How to get a chart URL:</h3>
+        <ol class="help-steps">
+          <li>Open your Google Sheets document</li>
+          <li>Select the chart you want to import</li>
+          <li>Click the three dots menu (⋯) on the chart</li>
+          <li>Select "Publish chart"</li>
+          <li>Choose "Image" format and click "Publish"</li>
+          <li>Copy the URL and paste it in the Insert tab</li>
+        </ol>
+      </div>
+      
+      <div class="help-card">
+        <h3><span>🔄</span> Updating charts:</h3>
+        <ol class="help-steps">
+          <li><strong>Update Selected:</strong> Select a chart in Figma, then click this button</li>
+          <li><strong>Update All:</strong> Updates all charts in your current Figma file at once</li>
+          <li>Charts are automatically linked to their Google Sheets source</li>
+          <li>No need to re-enter URLs when updating</li>
+        </ol>
+      </div>
+      
+      <div class="help-card">
+        <h3><span>📝</span> Tips & Troubleshooting:</h3>
+        <ol class="help-steps">
+          <li>Make sure your Google Sheets chart is published publicly</li>
+          <li>The URL should contain "/pubchart" in it</li>
+          <li>If you get errors, try copying the error message for debugging</li>
+          <li>Charts maintain their aspect ratio when inserted</li>
+          <li>Use meaningful names for better organization in the History tab</li>
+        </ol>
+      </div>
+    </div>
+    
+    <!-- History Tab -->
+    <div class="tab-panel" id="history-panel">
+      <div class="chart-grid" id="chartsContainer">
+        <!-- Charts will be rendered here -->
+      </div>
+      
+      <div class="empty-state" id="emptyState" style="display: none;">
+        <div class="empty-state-icon">📊</div>
+        <h3>No charts yet</h3>
+        <p>Charts you insert will appear here for easy management.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let charts = [];
+    
+    // Tab management
+    function initTabs() {
+      const tabs = document.querySelectorAll('.tab');
+      const panels = document.querySelectorAll('.tab-panel');
+      
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const targetTab = tab.dataset.tab;
+          
+          // Update tab states
+          tabs.forEach(t => t.classList.remove('active'));
+          panels.forEach(p => p.classList.remove('active'));
+          
+          tab.classList.add('active');
+          document.getElementById(targetTab + '-panel').classList.add('active');
+        });
+      });
+    }
+    
+    // Load charts from plugin data
+    window.onload = () => {
+      initTabs();
+      parent.postMessage({ pluginMessage: { type: 'load-charts' } }, '*');
+    };
+    
+    // Handle messages from the plugin
+    window.onmessage = (event) => {
+      const msg = event.data.pluginMessage;
+      
+      if (msg.type === 'load-charts') {
+        charts = msg.charts || [];
+        renderCharts();
+        return;
+      }
+
+      if (msg.type === 'error') {
+        showError(msg.message || 'Unknown error');
+        return;
+      }
+    };
+    
+    // Show error message
+    function showError(message) {
+      const panel = document.getElementById('errorPanel');
+      const messageEl = document.getElementById('errorMessage');
+      messageEl.textContent = message;
+      panel.classList.add('show');
+    }
+    
+    // Hide error message
+    function hideError() {
+      const panel = document.getElementById('errorPanel');
+      panel.classList.remove('show');
+    }
+    
+    // Insert chart button
+    document.getElementById('insertBtn').addEventListener('click', () => {
+      const url = document.getElementById('chartUrl').value.trim();
+      const name = document.getElementById('chartName').value.trim();
+      
+      if (!url) {
+        showError('Please enter a Google Sheets chart URL');
+        return;
+      }
+      
+      hideError();
+      
+      parent.postMessage({
+        pluginMessage: {
+          type: 'insert-chart',
+          url: url,
+          name: name
+        }
+      }, '*');
+      
+      // Clear inputs
+      document.getElementById('chartUrl').value = '';
+      document.getElementById('chartName').value = '';
+    });
+    
+    // Update selected chart button
+    document.getElementById('updateBtn').addEventListener('click', () => {
+      hideError();
+      parent.postMessage({
+        pluginMessage: {
+          type: 'update-chart'
+        }
+      }, '*');
+    });
+    
+    // Update all charts button
+    document.getElementById('updateAllBtn').addEventListener('click', () => {
+      hideError();
+      parent.postMessage({
+        pluginMessage: {
+          type: 'update-all-charts'
+        }
+      }, '*');
+    });
+    
+    function renderCharts() {
+      const container = document.getElementById('chartsContainer');
+      const emptyState = document.getElementById('emptyState');
+      
+      container.innerHTML = '';
+      
+      if (charts.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+      }
+      
+      emptyState.style.display = 'none';
+      
+      charts.forEach((chart, index) => {
+        const chartCard = document.createElement('div');
+        chartCard.className = 'chart-card';
+        
+        const date = new Date(chart.lastUpdated).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+        
+        chartCard.innerHTML = `
+          <div class="chart-header">
+            <h4 class="chart-name">${chart.name}</h4>
+            <span class="chart-date">${date}</span>
+          </div>
+          <div class="chart-url">${chart.url}</div>
+          <div class="chart-actions">
+            <button class="btn btn-secondary" onclick="updateChart('${chart.url}')">
+              Select & Update
+            </button>
+            <button class="btn btn-danger" onclick="deleteChart('${chart.url}')">
+              Remove
+            </button>
+          </div>
+        `;
+        
+        container.appendChild(chartCard);
+      });
+    }
+    
+    function updateChart(url) {
+      // Switch to insert tab and show instructions
+      const insertTab = document.querySelector('[data-tab="insert"]');
+      const tabs = document.querySelectorAll('.tab');
+      const panels = document.querySelectorAll('.tab-panel');
+      
+      tabs.forEach(t => t.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      
+      insertTab.classList.add('active');
+      document.getElementById('insert-panel').classList.add('active');
+      
+      showError('📍 Please select the chart in Figma first, then click "Update Selected Chart"');
+    }
+    
+    function deleteChart(url) {
+      if (confirm('Remove this chart from history?\\n\\nThis won\'t delete the chart from your Figma file.')) {
+        parent.postMessage({
+          pluginMessage: {
+            type: 'delete-chart',
+            url: url
+          }
+        }, '*');
+        
+        // Remove from local array and re-render
+        charts = charts.filter(chart => chart.url !== url);
+        renderCharts();
+      }
+    }
+
+    // Error panel actions
+    document.getElementById('copyErrorBtn').addEventListener('click', async () => {
+      const text = document.getElementById('errorMessage').textContent || '';
+      try { 
+        await navigator.clipboard.writeText(text); 
+        const btn = document.getElementById('copyErrorBtn');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '✅ Copied';
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+        }, 2000);
+      } catch {
+        // Fallback for older browsers
+        console.log('Error text:', text);
+      }
+    });
+    
+    document.getElementById('clearErrorBtn').addEventListener('click', () => {
+      hideError();
+    });
+    
+    // Enter key support for URL input
+    document.getElementById('chartUrl').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('insertBtn').click();
+      }
+    });
+  </script>
+</body>
+</html>

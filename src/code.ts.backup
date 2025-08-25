@@ -1,0 +1,294 @@
+figma.showUI(__html__, { width: 400, height: 500 });
+
+interface ChartData {
+  url: string;
+  name: string;
+  lastUpdated: string;
+}
+
+// Store chart data in plugin data
+figma.clientStorage.getAsync('charts').then((charts: ChartData[] = []) => {
+  figma.ui.postMessage({ type: 'load-charts', charts });
+});
+
+figma.ui.onmessage = async (msg) => {
+  if (msg.type === 'insert-chart') {
+    try {
+      const { url, name } = msg;
+      
+      // Convert Google Sheets chart URL to image URL
+      const imageUrl = convertToImageUrl(url);
+      
+      // Download the image data (force proxy for Google Docs to avoid CORS)
+      let response: Response;
+      if (/^https?:\/\/docs\.google\.com\//i.test(imageUrl)) {
+        const proxiedUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl.replace(/^https?:\/\//, ''))}`;
+        response = await fetch(proxiedUrl, { redirect: 'follow' as RequestRedirect });
+      } else {
+        try {
+          response = await fetch(imageUrl, { redirect: 'follow' as RequestRedirect });
+          if (!response.ok || !(response.headers.get('access-control-allow-origin') || '').includes('*')) {
+            throw new Error('CORS-fallback');
+          }
+        } catch (e) {
+          const proxiedUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl.replace(/^https?:\/\//, ''))}`;
+          response = await fetch(proxiedUrl, { redirect: 'follow' as RequestRedirect });
+        }
+      }
+      if (!response.ok) {
+        throw new Error(`Network error ${response.status}: ${response.statusText}. URL: ${imageUrl}`);
+      }
+      const respHeaders1: any = (response as any) && (response as any).headers;
+      const contentType = respHeaders1 && typeof respHeaders1.get === 'function' ? (respHeaders1.get('content-type') || '') : '';
+      const imageBuffer = await response.arrayBuffer();
+      
+      // Check if it's an image by content-type or PNG magic bytes
+      const isImageByType = contentType.toLowerCase().startsWith('image/') || contentType.toLowerCase() === 'application/octet-stream';
+      const isPngByMagic = contentType === '' && imageBuffer && new Uint8Array(imageBuffer).slice(0, 8).every((byte, i) => 
+        [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A][i] === byte
+      );
+      if (!isImageByType && !isPngByMagic) {
+        // Read a small portion of text to help debugging
+        const text = await response.text();
+        const snippet = text.slice(0, 200).replace(/\s+/g, ' ');
+        throw new Error(`Expected image content-type but got: ${contentType}. URL: ${imageUrl}. Body starts: ${snippet}`);
+      }
+      const imageData = await figma.createImage(new Uint8Array(imageBuffer));
+      
+      // Create rectangle to hold the image (no frame needed)
+      const rect = figma.createRectangle();
+      rect.name = name || 'Google Sheets Chart';
+      rect.resize(800, 500);
+      rect.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
+      
+      // Center the image in the viewport
+      figma.viewport.scrollAndZoomIntoView([rect]);
+      
+      // Store chart data
+      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      charts.push({
+        url,
+        name: name || 'Google Sheets Chart',
+        lastUpdated: new Date().toISOString()
+      });
+      await figma.clientStorage.setAsync('charts', charts);
+      
+      figma.notify('Chart inserted successfully!');
+    } catch (error) {
+      const message = 'Error inserting chart: ' + (error as Error).message;
+      figma.notify(message, { error: true });
+      try { figma.ui.postMessage({ type: 'error', context: 'insert', message }); } catch {}
+    }
+  }
+  
+  if (msg.type === 'update-chart') {
+    try {
+      const { url } = msg;
+      
+      // Find the selected rectangle to update
+      const selection = figma.currentPage.selection;
+      if (selection.length === 0) {
+        throw new Error('Please select a chart rectangle to update');
+      }
+      
+      const targetNode = selection[0];
+      
+      if (targetNode.type !== 'RECTANGLE') {
+        throw new Error('Please select a chart rectangle to update');
+      }
+      
+      // Convert URL to image URL
+      const imageUrl = convertToImageUrl(url);
+      
+      // Download new image data (force proxy for Google Docs)
+      let response: Response;
+      if (/^https?:\/\/docs\.google\.com\//i.test(imageUrl)) {
+        const proxiedUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl.replace(/^https?:\/\//, ''))}`;
+        response = await fetch(proxiedUrl, { redirect: 'follow' as RequestRedirect });
+      } else {
+        try {
+          response = await fetch(imageUrl, { redirect: 'follow' as RequestRedirect });
+          if (!response.ok || !(response.headers.get('access-control-allow-origin') || '').includes('*')) {
+            throw new Error('CORS-fallback');
+          }
+        } catch (e) {
+          const proxiedUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl.replace(/^https?:\/\//, ''))}`;
+          response = await fetch(proxiedUrl, { redirect: 'follow' as RequestRedirect });
+        }
+      }
+      if (!response.ok) {
+        throw new Error(`Network error ${response.status}: ${response.statusText}. URL: ${imageUrl}`);
+      }
+      const respHeaders2: any = (response as any) && (response as any).headers;
+      const contentType = respHeaders2 && typeof respHeaders2.get === 'function' ? (respHeaders2.get('content-type') || '') : '';
+      const imageBuffer = await response.arrayBuffer();
+      
+      // Check if it's an image by content-type or PNG magic bytes
+      const isImageByType = contentType.toLowerCase().startsWith('image/') || contentType.toLowerCase() === 'application/octet-stream';
+      const isPngByMagic = contentType === '' && imageBuffer && new Uint8Array(imageBuffer).slice(0, 8).every((byte, i) => 
+        [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A][i] === byte
+      );
+      if (!isImageByType && !isPngByMagic) {
+        const text = await response.text();
+        const snippet = text.slice(0, 200).replace(/\s+/g, ' ');
+        throw new Error(`Expected image content-type but got: ${contentType}. URL: ${imageUrl}. Body starts: ${snippet}`);
+      }
+      const imageData = await figma.createImage(new Uint8Array(imageBuffer));
+      
+      // Update the rectangle's fill
+      targetNode.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FILL' }];
+      
+      // Update last updated time
+      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      const chartIndex = charts.findIndex(chart => chart.url === url);
+      if (chartIndex !== -1) {
+        charts[chartIndex].lastUpdated = new Date().toISOString();
+        await figma.clientStorage.setAsync('charts', charts);
+      }
+      
+      figma.notify('Chart updated successfully!');
+    } catch (error) {
+      const message = 'Error updating chart: ' + (error as Error).message;
+      figma.notify(message, { error: true });
+      try { figma.ui.postMessage({ type: 'error', context: 'update', message }); } catch {}
+    }
+  }
+  
+  if (msg.type === 'update-all-charts') {
+    try {
+      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      if (charts.length === 0) {
+        throw new Error('No charts found in history');
+      }
+      
+      // Find all chart rectangles on the current page
+      const allRectangles = figma.currentPage.findAll(node => node.type === 'RECTANGLE') as RectangleNode[];
+      let updatedCount = 0;
+      let errorCount = 0;
+      
+      for (const rect of allRectangles) {
+        // Check if this rectangle name matches any chart in our history
+        const matchingChart = charts.find(chart => 
+          rect.name === chart.name || 
+          rect.name === 'Google Sheets Chart' || 
+          rect.name.includes('Chart')
+        );
+        
+        if (matchingChart) {
+          try {
+              
+              // Convert URL to image URL
+              const imageUrl = convertToImageUrl(matchingChart.url);
+              
+              // Download new image data (force proxy for Google Docs)
+              let response: Response;
+              if (/^https?:\/\/docs\.google\.com\//i.test(imageUrl)) {
+                const proxiedUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl.replace(/^https?:\/\//, ''))}`;
+                response = await fetch(proxiedUrl, { redirect: 'follow' as RequestRedirect });
+              } else {
+                try {
+                  response = await fetch(imageUrl, { redirect: 'follow' as RequestRedirect });
+                  if (!response.ok || !(response.headers.get('access-control-allow-origin') || '').includes('*')) {
+                    throw new Error('CORS-fallback');
+                  }
+                } catch (e) {
+                  const proxiedUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl.replace(/^https?:\/\//, ''))}`;
+                  response = await fetch(proxiedUrl, { redirect: 'follow' as RequestRedirect });
+                }
+              }
+              
+              if (!response.ok) {
+                throw new Error(`Network error ${response.status}: ${response.statusText}`);
+              }
+              
+              const respHeaders: any = (response as any) && (response as any).headers;
+              const contentType = respHeaders && typeof respHeaders.get === 'function' ? (respHeaders.get('content-type') || '') : '';
+              const imageBuffer = await response.arrayBuffer();
+              
+              // Check if it's an image by content-type or PNG magic bytes
+              const isImageByType = contentType.toLowerCase().startsWith('image/') || contentType.toLowerCase() === 'application/octet-stream';
+              const isPngByMagic = contentType === '' && imageBuffer && new Uint8Array(imageBuffer).slice(0, 8).every((byte, i) => 
+                [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A][i] === byte
+              );
+              
+              if (!isImageByType && !isPngByMagic) {
+                throw new Error(`Invalid image content-type: ${contentType}`);
+              }
+              
+              const imageData = await figma.createImage(new Uint8Array(imageBuffer));
+              rect.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
+              
+              // Update last updated time
+              const chartIndex = charts.findIndex(chart => chart.url === matchingChart.url);
+              if (chartIndex !== -1) {
+                charts[chartIndex].lastUpdated = new Date().toISOString();
+              }
+              
+              updatedCount++;
+            }
+          } catch (error) {
+            errorCount++;
+            console.error(`Failed to update chart "${rect.name}":`, error);
+          }
+        }
+      }
+      
+      // Save updated timestamps
+      await figma.clientStorage.setAsync('charts', charts);
+      
+      if (updatedCount > 0) {
+        figma.notify(`Updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} successfully!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+      } else {
+        throw new Error('No charts found to update on this page');
+      }
+      
+    } catch (error) {
+      const message = 'Error updating all charts: ' + (error as Error).message;
+      figma.notify(message, { error: true });
+      try { figma.ui.postMessage({ type: 'error', context: 'update-all', message }); } catch {}
+    }
+  }
+  
+  if (msg.type === 'delete-chart') {
+    try {
+      const { url } = msg;
+      
+      // Remove from stored charts
+      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      const filteredCharts = charts.filter(chart => chart.url !== url);
+      await figma.clientStorage.setAsync('charts', filteredCharts);
+      
+      figma.notify('Chart removed from history');
+    } catch (error) {
+      const message = 'Error removing chart: ' + (error as Error).message;
+      figma.notify(message, { error: true });
+      try { figma.ui.postMessage({ type: 'error', context: 'delete', message }); } catch {}
+    }
+  }
+};
+
+function convertToImageUrl(inputUrl: string): string {
+  const urlString = inputUrl.trim();
+
+  // Direct image hosts (already an image URL)
+  const googleUserContentHostRegex = /^https?:\/\/([a-z0-9-]+\.)*googleusercontent\.com\//i;
+  if (googleUserContentHostRegex.test(urlString)) {
+    return urlString;
+  }
+
+  // Published chart URL handling
+  if (urlString.includes('/pubchart')) {
+    // Ensure format=image query param exists and is set correctly
+    if (urlString.includes('?')) {
+      // Replace existing format param or append
+      if (/([?&])format=[^&#]*/i.test(urlString)) {
+        return urlString.replace(/([?&])format=[^&#]*/i, '$1format=image');
+      }
+      return urlString + '&format=image';
+    }
+    return urlString + '?format=image';
+  }
+
+  // Not supported: ask user to publish chart and use that link
+  throw new Error('Please use the published chart URL (it contains /pubchart). In Sheets: File > Share > Publish chart.');
+}
