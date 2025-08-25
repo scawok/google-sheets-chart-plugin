@@ -72,9 +72,15 @@ function validateImageData(imageBuffer: ArrayBuffer, contentType: string, imageU
   }
 }
 
-// Store chart data in plugin data
+// Store chart data in plugin data (file-specific)
 figma.clientStorage.getAsync('charts').then((charts: ChartData[] = []) => {
-  figma.ui.postMessage({ type: 'load-charts', charts });
+  // Add file context to the charts data
+  const fileContext = {
+    fileName: figma.root.name,
+    fileKey: figma.fileKey,
+    chartCount: charts.length
+  };
+  figma.ui.postMessage({ type: 'load-charts', charts, fileContext });
 });
 
 // Helper function to get chart data from node's plugin data

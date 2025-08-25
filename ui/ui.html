@@ -397,6 +397,38 @@
       margin: 0;
     }
     
+    .file-info-bar {
+      background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+      border: 1px solid #333333;
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+    
+    .file-info-icon {
+      font-size: 14px;
+      opacity: 0.7;
+    }
+    
+    .file-info-text {
+      color: #ffffff;
+      font-weight: 600;
+      flex: 1;
+    }
+    
+    .file-info-count {
+      color: #b8b8b8;
+      background: #0a0a0a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    
     .error-panel {
       background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
       border: 1px solid #666666;
@@ -824,6 +856,12 @@
     
     <!-- History Tab -->
     <div class="tab-panel" id="history-panel">
+      <div class="file-info-bar" id="fileInfoBar" style="display: none;">
+        <span class="file-info-icon">📁</span>
+        <span class="file-info-text" id="fileInfoText"></span>
+        <span class="file-info-count" id="fileInfoCount"></span>
+      </div>
+      
       <div class="chart-grid" id="chartsContainer">
         <!-- Charts will be rendered here -->
       </div>
@@ -887,6 +925,17 @@
       if (msg.type === 'load-charts') {
         charts = msg.charts || [];
         renderCharts();
+        
+        // Display file-specific information
+        if (msg.fileContext) {
+          const fileInfoBar = document.getElementById('fileInfoBar');
+          const fileInfoText = document.getElementById('fileInfoText');
+          const fileInfoCount = document.getElementById('fileInfoCount');
+          
+          fileInfoText.textContent = msg.fileContext.fileName || 'Untitled File';
+          fileInfoCount.textContent = `${msg.fileContext.chartCount} chart${msg.fileContext.chartCount !== 1 ? 's' : ''}`;
+          fileInfoBar.style.display = 'flex';
+        }
         return;
       }
 
