@@ -101,7 +101,10 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             });
             yield figma.clientStorage.setAsync('charts', charts);
             showNotification('✅ Chart inserted successfully!');
-            sendStatusMessage('✅ Chart inserted successfully!', 'success');
+            try {
+                figma.ui.postMessage({ type: 'completion', message: '✅ Chart inserted successfully!', statusType: 'success' });
+            }
+            catch (_a) { }
         }
         catch (error) {
             const message = 'Error inserting chart: ' + error.message;
@@ -109,7 +112,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             try {
                 figma.ui.postMessage({ type: 'error', context: 'insert', message });
             }
-            catch (_a) { }
+            catch (_b) { }
         }
     }
     if (msg.type === 'update-chart') {
@@ -165,7 +168,10 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 sendStatusMessage('🔄 Updating chart in Figma...', 'processing');
                 targetNode.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
                 showNotification('✅ Chart updated successfully!');
-                sendStatusMessage('✅ Chart updated successfully!', 'success');
+                try {
+                    figma.ui.postMessage({ type: 'completion', message: '✅ Chart updated successfully!', statusType: 'success' });
+                }
+                catch (_c) { }
             }
             // Update last updated time
             sendStatusMessage('💾 Updating chart timestamp...', 'processing');
@@ -192,7 +198,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             try {
                 figma.ui.postMessage({ type: 'error', context: 'update', message });
             }
-            catch (_b) { }
+            catch (_d) { }
         }
     }
     if (msg.type === 'update-all-charts') {
@@ -301,7 +307,10 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             yield figma.clientStorage.setAsync('charts', charts);
             if (updatedCount > 0) {
                 showNotification(`🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
-                sendStatusMessage(`🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`, 'success');
+                try {
+                    figma.ui.postMessage({ type: 'completion', message: `🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`, statusType: 'success' });
+                }
+                catch (_e) { }
             }
             else if (errorCount === 0) {
                 sendStatusMessage('ℹ️ All charts unchanged. Google Sheets may not have updated the published images yet.', 'warning');
@@ -326,7 +335,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             try {
                 figma.ui.postMessage({ type: 'error', context: 'update-all', message });
             }
-            catch (_c) { }
+            catch (_f) { }
         }
     }
     if (msg.type === 'test-chart-url') {
@@ -340,11 +349,14 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             sendStatusMessage('🔍 Validating image format...', 'processing');
             validateImageData(imageBuffer, contentType, imageUrl);
             showNotification('✅ Chart URL is working correctly! Image fetched successfully.');
-            sendStatusMessage('✅ Chart URL is working correctly! Image fetched successfully.', 'success');
+            try {
+                figma.ui.postMessage({ type: 'completion', message: '✅ Chart URL is working correctly! Image fetched successfully.', statusType: 'success' });
+            }
+            catch (_g) { }
             try {
                 figma.ui.postMessage({ type: 'success', message: 'Chart URL is working correctly! Image fetched successfully.' });
             }
-            catch (_d) { }
+            catch (_h) { }
         }
         catch (error) {
             let message = 'Error testing chart URL: ' + error.message;
@@ -362,7 +374,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             try {
                 figma.ui.postMessage({ type: 'error', context: 'test', message });
             }
-            catch (_e) { }
+            catch (_j) { }
         }
     }
     if (msg.type === 'delete-chart') {
@@ -380,7 +392,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             try {
                 figma.ui.postMessage({ type: 'error', context: 'delete', message });
             }
-            catch (_f) { }
+            catch (_k) { }
         }
     }
 });

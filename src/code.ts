@@ -117,7 +117,7 @@ figma.ui.onmessage = async (msg) => {
       await figma.clientStorage.setAsync('charts', charts);
       
       showNotification('✅ Chart inserted successfully!');
-      sendStatusMessage('✅ Chart inserted successfully!', 'success');
+      try { figma.ui.postMessage({ type: 'completion', message: '✅ Chart inserted successfully!', statusType: 'success' }); } catch {}
     } catch (error) {
       const message = 'Error inserting chart: ' + (error as Error).message;
       figma.notify(message, { error: true });
@@ -188,7 +188,7 @@ figma.ui.onmessage = async (msg) => {
         sendStatusMessage('🔄 Updating chart in Figma...', 'processing');
         targetNode.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
         showNotification('✅ Chart updated successfully!');
-        sendStatusMessage('✅ Chart updated successfully!', 'success');
+        try { figma.ui.postMessage({ type: 'completion', message: '✅ Chart updated successfully!', statusType: 'success' }); } catch {}
       }
       
       // Update last updated time
@@ -336,7 +336,7 @@ figma.ui.onmessage = async (msg) => {
       
       if (updatedCount > 0) {
         showNotification(`🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
-        sendStatusMessage(`🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`, 'success');
+        try { figma.ui.postMessage({ type: 'completion', message: `🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`, statusType: 'success' }); } catch {}
       } else if (errorCount === 0) {
         sendStatusMessage('ℹ️ All charts unchanged. Google Sheets may not have updated the published images yet.', 'warning');
       } else {
@@ -375,7 +375,7 @@ figma.ui.onmessage = async (msg) => {
       validateImageData(imageBuffer, contentType, imageUrl);
       
       showNotification('✅ Chart URL is working correctly! Image fetched successfully.');
-      sendStatusMessage('✅ Chart URL is working correctly! Image fetched successfully.', 'success');
+      try { figma.ui.postMessage({ type: 'completion', message: '✅ Chart URL is working correctly! Image fetched successfully.', statusType: 'success' }); } catch {}
       try { figma.ui.postMessage({ type: 'success', message: 'Chart URL is working correctly! Image fetched successfully.' }); } catch {}
       
     } catch (error) {
