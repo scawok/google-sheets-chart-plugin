@@ -125,6 +125,11 @@
       background: #2a2a2a;
     }
     
+    .form-group input.populated {
+      border-color: #4CAF50 !important;
+      background: rgba(76, 175, 80, 0.05);
+    }
+    
     .form-group input::placeholder {
       color: #8a8a8a;
     }
@@ -760,6 +765,11 @@
       initTabs();
       initStatusPanel();
       parent.postMessage({ pluginMessage: { type: 'load-charts' } }, '*');
+      
+      // Check if there's already a chart selected
+      setTimeout(() => {
+        parent.postMessage({ pluginMessage: { type: 'get-selected-chart-info' } }, '*');
+      }, 100);
     };
     
     // Handle messages from the plugin
@@ -790,6 +800,17 @@
       
       if (msg.type === 'status') {
         addStatusMessage(msg.message, msg.statusType || 'info');
+        return;
+      }
+      
+      if (msg.type === 'selection-changed') {
+        // Request info about the selected chart
+        parent.postMessage({ pluginMessage: { type: 'get-selected-chart-info' } }, '*');
+        return;
+      }
+      
+      if (msg.type === 'selected-chart-info') {
+        updateFormWithSelectedChart(msg.chartInfo);
         return;
       }
       
@@ -947,6 +968,33 @@
       
       // Add to history
       addStatusMessage(message, type);
+    }
+    
+    // Update form fields with selected chart info
+    function updateFormWithSelectedChart(chartInfo) {
+      const chartNameInput = document.getElementById('chartName');
+      const chartUrlInput = document.getElementById('chartUrl');
+      
+      if (chartInfo) {
+        // Populate form fields with selected chart data
+        chartNameInput.value = chartInfo.name;
+        chartUrlInput.value = chartInfo.url;
+        
+        // Add visual indication that fields are populated from selection
+        chartNameInput.classList.add('populated');
+        chartUrlInput.classList.add('populated');
+        
+        // Add a small indicator
+        addStatusMessage(`📋 Form populated from selected chart: ${chartInfo.name}`, 'info');
+      } else {
+        // Clear form fields if no chart is selected
+        chartNameInput.value = '';
+        chartUrlInput.value = '';
+        
+        // Remove visual indication
+        chartNameInput.classList.remove('populated');
+        chartUrlInput.classList.remove('populated');
+      }
     }
     
     // Insert chart button

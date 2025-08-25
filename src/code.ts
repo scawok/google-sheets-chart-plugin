@@ -77,6 +77,12 @@ figma.clientStorage.getAsync('charts').then((charts: ChartData[] = []) => {
   figma.ui.postMessage({ type: 'load-charts', charts });
 });
 
+// Listen for selection changes to update form fields
+figma.on('selectionchange', () => {
+  // Send selection change event to UI
+  try { figma.ui.postMessage({ type: 'selection-changed' }); } catch {}
+});
+
 figma.ui.onmessage = async (msg) => {
   if (msg.type === 'insert-chart') {
     try {
@@ -122,6 +128,54 @@ figma.ui.onmessage = async (msg) => {
       const message = 'Error inserting chart: ' + (error as Error).message;
       figma.notify(message, { error: true });
       try { figma.ui.postMessage({ type: 'error', context: 'insert', message }); } catch {}
+    }
+  }
+  
+  if (msg.type === 'get-selected-chart-info') {
+    try {
+      const selection = figma.currentPage.selection;
+      if (selection.length === 0) {
+        try { figma.ui.postMessage({ type: 'selected-chart-info', chartInfo: null }); } catch {}
+        return;
+      }
+      
+      const targetNode = selection[0];
+      
+      if (!targetNode || targetNode.type !== 'RECTANGLE') {
+        try { figma.ui.postMessage({ type: 'selected-chart-info', chartInfo: null }); } catch {}
+        return;
+      }
+      
+      // Find the chart URL from stored charts by matching the rectangle name or ID
+      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      const matchingChart = charts.find(chart => {
+        // Extract chart ID from rectangle name if it exists
+        const idMatch = targetNode.name.match(/\(chart_[^)]+\)$/);
+        if (idMatch && chart.id) {
+          const extractedId = idMatch[0].slice(1, -1); // Remove parentheses
+          return extractedId === chart.id;
+        }
+        // Fallback to name matching for backward compatibility
+        return targetNode.name === chart.name || 
+               (targetNode.name === 'Google Sheets Chart' && chart.name === 'Google Sheets Chart');
+      });
+      
+      if (matchingChart) {
+        try { 
+          figma.ui.postMessage({ 
+            type: 'selected-chart-info', 
+            chartInfo: {
+              url: matchingChart.url,
+              name: matchingChart.name,
+              id: matchingChart.id
+            }
+          }); 
+        } catch {}
+      } else {
+        try { figma.ui.postMessage({ type: 'selected-chart-info', chartInfo: null }); } catch {}
+      }
+    } catch (error) {
+      try { figma.ui.postMessage({ type: 'selected-chart-info', chartInfo: null }); } catch {}
     }
   }
   
