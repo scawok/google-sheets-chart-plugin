@@ -77,6 +77,28 @@ figma.clientStorage.getAsync('charts').then((charts: ChartData[] = []) => {
   figma.ui.postMessage({ type: 'load-charts', charts });
 });
 
+// Helper function to get chart data from node's plugin data
+function getChartDataFromNode(node: SceneNode): ChartData | null {
+  try {
+    const pluginData = node.getPluginData('chartData');
+    if (pluginData) {
+      return JSON.parse(pluginData);
+    }
+  } catch (error) {
+    console.warn('Failed to parse chart data from node:', error);
+  }
+  return null;
+}
+
+// Helper function to set chart data in node's plugin data
+function setChartDataInNode(node: SceneNode, chartData: ChartData): void {
+  try {
+    node.setPluginData('chartData', JSON.stringify(chartData));
+  } catch (error) {
+    console.warn('Failed to set chart data in node:', error);
+  }
+}
+
 // Listen for selection changes to update form fields
 figma.on('selectionchange', () => {
   // Send selection change event to UI
@@ -134,13 +156,18 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       
       // Store chart data
       sendStatusMessage('💾 Saving chart to history...', 'processing');
-      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
-      charts.push({
+      const chartData: ChartData = {
         url,
         name: name || 'Google Sheets Chart',
         lastUpdated: new Date().toISOString(),
         id: chartId
-      });
+      };
+      
+      // Store in both node data (for portability) and storage (for history)
+      setChartDataInNode(rect, chartData);
+      
+      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      charts.push(chartData);
       await figma.clientStorage.setAsync('charts', charts);
       
       showNotification('✅ Chart inserted successfully!');
@@ -171,28 +198,33 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         return;
       }
       
-      // Find the chart URL from stored charts by matching the rectangle name or ID
-      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
-      const matchingChart = charts.find(chart => {
-        // Extract chart ID from rectangle name if it exists
-        const idMatch = targetNode.name.match(/\(chart_[^)]+\)$/);
-        if (idMatch && chart.id) {
-          const extractedId = idMatch[0].slice(1, -1); // Remove parentheses
-          return extractedId === chart.id;
-        }
-        // Fallback to name matching for backward compatibility
-        return targetNode.name === chart.name || 
-               (targetNode.name === 'Google Sheets Chart' && chart.name === 'Google Sheets Chart');
-      });
+      // First, try to get chart data from the node's plugin data (for copied charts)
+      let chartData = getChartDataFromNode(targetNode);
       
-      if (matchingChart) {
+      if (!chartData) {
+        // Fallback to stored charts by matching the rectangle name or ID
+        const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+        chartData = charts.find(chart => {
+          // Extract chart ID from rectangle name if it exists
+          const idMatch = targetNode.name.match(/\(chart_[^)]+\)$/);
+          if (idMatch && chart.id) {
+            const extractedId = idMatch[0].slice(1, -1); // Remove parentheses
+            return extractedId === chart.id;
+          }
+          // Fallback to name matching for backward compatibility
+          return targetNode.name === chart.name || 
+                 (targetNode.name === 'Google Sheets Chart' && chart.name === 'Google Sheets Chart');
+        }) || null;
+      }
+      
+      if (chartData) {
         try { 
           figma.ui.postMessage({ 
             type: 'selected-chart-info', 
             chartInfo: {
-              url: matchingChart.url,
-              name: matchingChart.name,
-              id: matchingChart.id
+              url: chartData.url,
+              name: chartData.name,
+              id: chartData.id
             }
           }); 
         } catch {}
@@ -220,27 +252,32 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       
       sendStatusMessage('🔍 Looking for selected chart...', 'processing');
       
-      // Find the chart URL from stored charts by matching the rectangle name or ID
-      sendStatusMessage('🔗 Finding chart URL in history...', 'processing');
-      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
-      const matchingChart = charts.find(chart => {
-        // Extract chart ID from rectangle name if it exists
-        const idMatch = targetNode.name.match(/\(chart_[^)]+\)$/);
-        if (idMatch && chart.id) {
-          const extractedId = idMatch[0].slice(1, -1); // Remove parentheses
-          return extractedId === chart.id;
-        }
-        // Fallback to name matching for backward compatibility
-        return targetNode.name === chart.name || 
-               (targetNode.name === 'Google Sheets Chart' && chart.name === 'Google Sheets Chart');
-      });
+      // First, try to get chart data from the node's plugin data (for copied charts)
+      let chartData = getChartDataFromNode(targetNode);
       
-      if (!matchingChart) {
+      if (!chartData) {
+        // Fallback to stored charts by matching the rectangle name or ID
+        sendStatusMessage('🔗 Finding chart URL in history...', 'processing');
+        const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+        chartData = charts.find(chart => {
+          // Extract chart ID from rectangle name if it exists
+          const idMatch = targetNode.name.match(/\(chart_[^)]+\)$/);
+          if (idMatch && chart.id) {
+            const extractedId = idMatch[0].slice(1, -1); // Remove parentheses
+            return extractedId === chart.id;
+          }
+          // Fallback to name matching for backward compatibility
+          return targetNode.name === chart.name || 
+                 (targetNode.name === 'Google Sheets Chart' && chart.name === 'Google Sheets Chart');
+        }) || null;
+      }
+      
+      if (!chartData) {
         throw new Error(`No stored URL found for chart "${targetNode.name}". Please use "Insert Chart" instead.`);
       }
       
       // Convert URL to image URL with cache-busting parameter
-      const imageUrl = convertToImageUrl(matchingChart.url) + `&t=${Date.now()}`;
+      const imageUrl = convertToImageUrl(chartData.url) + `&t=${Date.now()}`;
       
       // Download and validate the image data
       sendStatusMessage('🔄 Downloading updated chart from Google Sheets...', 'processing');
@@ -261,7 +298,14 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       
       // Update last updated time first
       sendStatusMessage('💾 Updating chart timestamp...', 'processing');
-      const chartIndex = charts.findIndex(chart => chart.url === matchingChart.url);
+      
+      // Update timestamp in both node data and storage
+      chartData.lastUpdated = new Date().toISOString();
+      setChartDataInNode(targetNode, chartData);
+      
+      // Also update in storage if it exists there
+      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      const chartIndex = charts.findIndex(chart => chart.url === chartData.url);
       if (chartIndex !== -1) {
         charts[chartIndex].lastUpdated = new Date().toISOString();
         await figma.clientStorage.setAsync('charts', charts);
@@ -497,6 +541,14 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
           targetNode.x = originalX;
           targetNode.y = originalY;
           
+          // Also update the node's plugin data if it exists
+          const nodeChartData = getChartDataFromNode(targetNode);
+          if (nodeChartData) {
+            nodeChartData.url = newUrl;
+            nodeChartData.lastUpdated = new Date().toISOString();
+            setChartDataInNode(targetNode, nodeChartData);
+          }
+          
           sendStatusMessage('✅ Chart image updated successfully!', 'success');
         }
       }
@@ -552,6 +604,14 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             targetNode.name = `${newName} (${idMatch[0].slice(1, -1)})`;
           } else {
             targetNode.name = newName;
+          }
+          
+          // Also update the node's plugin data if it exists
+          const nodeChartData = getChartDataFromNode(targetNode);
+          if (nodeChartData) {
+            nodeChartData.name = newName;
+            nodeChartData.lastUpdated = new Date().toISOString();
+            setChartDataInNode(targetNode, nodeChartData);
           }
         }
       }
