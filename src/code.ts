@@ -414,6 +414,81 @@ figma.ui.onmessage = async (msg) => {
     }
   }
   
+  if (msg.type === 'update-chart-url') {
+    try {
+      const { chartId, newUrl } = msg;
+      
+      if (!chartId || !newUrl) {
+        throw new Error('Missing chart ID or new URL');
+      }
+      
+      sendStatusMessage('🔄 Updating chart URL...', 'processing');
+      
+      // Find the chart in storage and update its URL
+      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      const chartIndex = charts.findIndex(chart => chart.id === chartId);
+      
+      if (chartIndex === -1) {
+        throw new Error('Chart not found in history');
+      }
+      
+      const oldUrl = charts[chartIndex].url;
+      charts[chartIndex].url = newUrl;
+      
+      // Update the chart's last updated time
+      charts[chartIndex].lastUpdated = new Date().toISOString();
+      
+      // Save the updated charts
+      await figma.clientStorage.setAsync('charts', charts);
+      
+      // Update the chart image in Figma if it exists
+      const selection = figma.currentPage.selection;
+      if (selection.length > 0) {
+        const targetNode = selection[0];
+        if (targetNode.type === 'RECTANGLE') {
+          sendStatusMessage('🔄 Downloading new chart image...', 'processing');
+          
+          // Convert URL to image URL with cache-busting parameter
+          const imageUrl = convertToImageUrl(newUrl) + `&t=${Date.now()}`;
+          
+          // Download and validate the image data
+          const { imageBuffer, contentType } = await fetchImageData(imageUrl);
+          validateImageData(imageBuffer, contentType, imageUrl);
+          
+          sendStatusMessage('🖼️ Creating new chart image...', 'processing');
+          const imageData = await figma.createImage(new Uint8Array(imageBuffer));
+          
+          // Store the original size and position
+          const originalWidth = targetNode.width;
+          const originalHeight = targetNode.height;
+          const originalX = targetNode.x;
+          const originalY = targetNode.y;
+          
+          // Update the rectangle's fill with the new image
+          targetNode.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
+          
+          // Maintain the original size and position
+          targetNode.resize(originalWidth, originalHeight);
+          targetNode.x = originalX;
+          targetNode.y = originalY;
+          
+          sendStatusMessage('✅ Chart image updated successfully!', 'success');
+        }
+      }
+      
+      showNotification(`✅ Chart URL updated from "${oldUrl}" to "${newUrl}"`);
+      try { figma.ui.postMessage({ type: 'completion', message: `✅ Chart URL updated from "${oldUrl}" to "${newUrl}"`, statusType: 'success' }); } catch {}
+      
+      // Send updated charts list to refresh the UI
+      try { figma.ui.postMessage({ type: 'chart-url-updated', charts }); } catch {}
+      
+    } catch (error) {
+      const message = 'Error updating chart URL: ' + (error as Error).message;
+      figma.notify(message, { error: true });
+      try { figma.ui.postMessage({ type: 'error', context: 'update-url', message }); } catch {}
+    }
+  }
+  
   if (msg.type === 'update-chart-name') {
     try {
       const { chartId, newName } = msg;

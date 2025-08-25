@@ -210,6 +210,20 @@
       transform: translateY(-1px);
     }
     
+    #updateUrlBtn {
+      background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+      color: white;
+      border: none;
+      animation: fadeIn 0.3s ease;
+      font-size: 11px;
+      padding: 8px 12px;
+    }
+    
+    #updateUrlBtn:hover {
+      background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+      transform: translateY(-1px);
+    }
+    
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(-10px); }
       to { opacity: 1; transform: translateY(0); }
@@ -632,6 +646,9 @@
       <div class="form-group">
         <label for="chartUrl">Google Sheets Chart URL</label>
         <input type="text" id="chartUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
+        <button class="btn btn-secondary" id="updateUrlBtn" style="display: none; margin-top: 8px; width: 100%;">
+          Update Chart URL
+        </button>
       </div>
       
       <div class="button-group">
@@ -793,9 +810,11 @@
         parent.postMessage({ pluginMessage: { type: 'get-selected-chart-info' } }, '*');
       }, 100);
       
-      // Add event listener to chart name input for change detection
+      // Add event listeners to chart inputs for change detection
       const chartNameInput = document.getElementById('chartName');
+      const chartUrlInput = document.getElementById('chartUrl');
       chartNameInput.addEventListener('input', checkNameChange);
+      chartUrlInput.addEventListener('input', checkUrlChange);
     };
     
     // Handle messages from the plugin
@@ -849,6 +868,19 @@
         const chartNameInput = document.getElementById('chartName');
         chartNameInput.dataset.originalName = chartNameInput.value.trim();
         document.getElementById('updateNameBtn').style.display = 'none';
+        
+        return;
+      }
+      
+      if (msg.type === 'chart-url-updated') {
+        // Refresh the charts list to show the updated URL
+        charts = msg.charts || charts;
+        renderCharts();
+        
+        // Update the original URL in the input field and hide the button
+        const chartUrlInput = document.getElementById('chartUrl');
+        chartUrlInput.dataset.originalUrl = chartUrlInput.value.trim();
+        document.getElementById('updateUrlBtn').style.display = 'none';
         
         return;
       }
@@ -1024,11 +1056,27 @@
       }
     }
     
+    // Check if chart URL has changed and show/hide update button
+    function checkUrlChange() {
+      const chartUrlInput = document.getElementById('chartUrl');
+      const updateUrlBtn = document.getElementById('updateUrlBtn');
+      const originalUrl = chartUrlInput.dataset.originalUrl;
+      const currentUrl = chartUrlInput.value.trim();
+      
+      // Only show button if we have an original URL (chart is selected) and the URL has changed
+      if (originalUrl && currentUrl && currentUrl !== originalUrl) {
+        updateUrlBtn.style.display = 'block';
+      } else {
+        updateUrlBtn.style.display = 'none';
+      }
+    }
+    
     // Update form fields with selected chart info
     function updateFormWithSelectedChart(chartInfo) {
       const chartNameInput = document.getElementById('chartName');
       const chartUrlInput = document.getElementById('chartUrl');
       const updateNameBtn = document.getElementById('updateNameBtn');
+      const updateUrlBtn = document.getElementById('updateUrlBtn');
       
       if (chartInfo) {
         // Populate form fields with selected chart data
@@ -1041,10 +1089,12 @@
         
         // Store the original chart info for comparison
         chartNameInput.dataset.originalName = chartInfo.name;
+        chartNameInput.dataset.originalUrl = chartInfo.url;
         chartNameInput.dataset.chartId = chartInfo.id;
         
-        // Hide the update name button initially
+        // Hide the update buttons initially
         updateNameBtn.style.display = 'none';
+        updateUrlBtn.style.display = 'none';
         
         // Add a small indicator
         addStatusMessage(`📋 Form populated from selected chart: ${chartInfo.name}`, 'info');
@@ -1057,11 +1107,13 @@
         chartNameInput.classList.remove('populated');
         chartUrlInput.classList.remove('populated');
         
-        // Hide the update name button
+        // Hide the update buttons
         updateNameBtn.style.display = 'none';
+        updateUrlBtn.style.display = 'none';
         
         // Clear stored data
         delete chartNameInput.dataset.originalName;
+        delete chartNameInput.dataset.originalUrl;
         delete chartNameInput.dataset.chartId;
       }
     }
@@ -1133,6 +1185,32 @@
           type: 'update-chart-name', 
           chartId: chartId,
           newName: newName 
+        } 
+      }, '*');
+    });
+    
+    // Update chart URL button
+    document.getElementById('updateUrlBtn').addEventListener('click', () => {
+      const chartUrlInput = document.getElementById('chartUrl');
+      const newUrl = chartUrlInput.value.trim();
+      const originalUrl = chartUrlInput.dataset.originalUrl;
+      const chartId = chartUrlInput.dataset.chartId;
+      
+      if (!newUrl) {
+        addStatusMessage('❌ Chart URL cannot be empty', 'error');
+        return;
+      }
+      
+      if (newUrl === originalUrl) {
+        addStatusMessage('ℹ️ Chart URL unchanged', 'info');
+        return;
+      }
+      
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'update-chart-url', 
+          chartId: chartId,
+          newUrl: newUrl 
         } 
       }, '*');
     });
