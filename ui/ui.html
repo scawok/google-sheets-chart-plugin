@@ -492,6 +492,11 @@
       border-left: 4px solid #FF9800;
     }
     
+    .status-current strong {
+      font-weight: 600;
+      color: #ffffff;
+    }
+    
     .status-content {
       max-height: 150px;
       overflow-y: auto;
@@ -898,12 +903,12 @@
         .replace(/🔄 Updating chart: (.+)\.\.\./, 'UPDATING_CHART: $1')
         .replace(/✅ Updated: (.+)/, 'UPDATED: $1')
         .replace(/ℹ️ No changes: (.+)/, 'NO_CHANGES: $1')
-        .replace(/🎉 Successfully updated (\d+) chart(s?) across all pages!.*/, 'SUCCESS: Updated $1 chart$2')
-        .replace('ℹ️ All charts unchanged. Google Sheets may not have updated the published images yet.', 'NO_UPDATES: Charts unchanged')
-        .replace('✅ Chart inserted successfully!', 'SUCCESS: Chart inserted')
-        .replace('✅ Chart updated successfully!', 'SUCCESS: Chart updated')
-        .replace('✅ Chart URL is working correctly! Image fetched successfully.', 'SUCCESS: URL test passed')
-        .replace('ℹ️ Chart image unchanged. Google Sheets may not have updated the published image yet.', 'WARNING: Chart unchanged')
+        .replace(/🎉 Successfully updated (\d+) chart(s?) across all pages!.*/, 'DONE: Updated $1 chart$2')
+        .replace('ℹ️ All charts unchanged. Google Sheets may not have updated the published images yet.', 'DONE: No updates needed')
+        .replace('✅ Chart inserted successfully!', 'DONE: Chart inserted')
+        .replace('✅ Chart updated successfully!', 'DONE: Chart updated')
+        .replace('✅ Chart URL is working correctly! Image fetched successfully.', 'DONE: URL test passed')
+        .replace('ℹ️ Chart image unchanged. Google Sheets may not have updated the published image yet.', 'DONE: Chart unchanged')
         .replace('🔍 Testing chart URL...', 'TESTING_URL');
     }
     
@@ -937,7 +942,7 @@
       statusCurrent.className = `status-current ${type}`;
       statusCurrent.innerHTML = `
         <span class="status-icon">${icon}</span>
-        <span class="status-text">DONE: ${simplifiedMessage}</span>
+        <span class="status-text"><strong>DONE</strong> - ${simplifiedMessage}</span>
       `;
       
       // Add to history
