@@ -72,9 +72,15 @@ function validateImageData(imageBuffer: ArrayBuffer, contentType: string, imageU
   }
 }
 
+// Helper function to get file-specific storage key
+function getFileStorageKey(): string {
+  return `charts_${figma.fileKey}`;
+}
+
 // Helper function to send charts with file context
 async function sendChartsWithContext() {
-  const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+  const storageKey = getFileStorageKey();
+  const charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
   const fileContext = {
     fileName: figma.root.name,
     fileKey: figma.fileKey,
@@ -192,9 +198,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       // Store in both node data (for portability) and storage (for history)
       setChartDataInNode(rect, chartData);
       
-      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      const storageKey = getFileStorageKey();
+      const charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
       charts.push(chartData);
-      await figma.clientStorage.setAsync('charts', charts);
+      await figma.clientStorage.setAsync(storageKey, charts);
       
       // Refresh the charts list with updated file context
       await sendChartsWithContext();
@@ -232,7 +239,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       
       if (!chartData) {
         // Fallback to stored charts by matching the rectangle name or ID
-        const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+        const storageKey = getFileStorageKey();
+        const charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
         chartData = charts.find(chart => {
           // Extract chart ID from rectangle name if it exists
           const idMatch = targetNode.name.match(/\(chart_[^)]+\)$/);
@@ -287,7 +295,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       if (!chartData) {
         // Fallback to stored charts by matching the rectangle name or ID
         sendStatusMessage('🔗 Finding chart URL in history...', 'processing');
-        const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+        const storageKey = getFileStorageKey();
+        const charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
         chartData = charts.find(chart => {
           // Extract chart ID from rectangle name if it exists
           const idMatch = targetNode.name.match(/\(chart_[^)]+\)$/);
@@ -333,11 +342,12 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       setChartDataInNode(targetNode, chartData);
       
       // Also update in storage if it exists there
-      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      const storageKey = getFileStorageKey();
+      const charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
       const chartIndex = charts.findIndex(chart => chart.url === chartData.url);
       if (chartIndex !== -1) {
         charts[chartIndex].lastUpdated = new Date().toISOString();
-        await figma.clientStorage.setAsync('charts', charts);
+        await figma.clientStorage.setAsync(storageKey, charts);
       }
       
       if (oldImageHash === imageData.hash) {
@@ -372,7 +382,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
 
   if (msg.type === 'update-all-charts') {
     try {
-      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      const storageKey = getFileStorageKey();
+      const charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
       if (charts.length === 0) {
         throw new Error('No charts found in history');
       }
@@ -484,7 +495,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       }
       
       // Save updated timestamps
-      await figma.clientStorage.setAsync('charts', charts);
+      await figma.clientStorage.setAsync(storageKey, charts);
       
       if (updatedCount > 0) {
         showNotification(`🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
@@ -523,7 +534,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       sendStatusMessage('🔄 Updating chart URL...', 'processing');
       
       // Find the chart in storage and update its URL
-      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      const storageKey = getFileStorageKey();
+      const charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
       const chartIndex = charts.findIndex(chart => chart.id === chartId);
       
       if (chartIndex === -1) {
@@ -537,7 +549,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       charts[chartIndex].lastUpdated = new Date().toISOString();
       
       // Save the updated charts
-      await figma.clientStorage.setAsync('charts', charts);
+      await figma.clientStorage.setAsync(storageKey, charts);
       
       // Update the chart image in Figma if it exists
       const selection = figma.currentPage.selection;
@@ -606,7 +618,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       sendStatusMessage('💾 Updating chart name...', 'processing');
       
       // Find the chart in storage and update its name
-      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      const storageKey = getFileStorageKey();
+      const charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
       const chartIndex = charts.findIndex(chart => chart.id === chartId);
       
       if (chartIndex === -1) {
@@ -620,7 +633,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       charts[chartIndex].lastUpdated = new Date().toISOString();
       
       // Save the updated charts
-      await figma.clientStorage.setAsync('charts', charts);
+      await figma.clientStorage.setAsync(storageKey, charts);
       
       // Update the rectangle name in Figma if it exists
       const selection = figma.currentPage.selection;
@@ -707,9 +720,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       const { url } = msg;
       
       // Remove from stored charts
-      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      const storageKey = getFileStorageKey();
+      const charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
       const filteredCharts = charts.filter(chart => chart.url !== url);
-      await figma.clientStorage.setAsync('charts', filteredCharts);
+      await figma.clientStorage.setAsync(storageKey, filteredCharts);
       
       // Refresh the charts list with updated file context
       await sendChartsWithContext();
