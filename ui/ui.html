@@ -1146,6 +1146,9 @@
         delete chartNameInput.dataset.chartId;
         delete chartUrlInput.dataset.originalUrl;
         delete chartUrlInput.dataset.chartId;
+        
+        // Clear progress status when chart is deselected
+        clearStatusMessages();
       }
     }
     
