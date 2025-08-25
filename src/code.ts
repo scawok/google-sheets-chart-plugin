@@ -1,10 +1,18 @@
 figma.showUI(__html__, { width: 400, height: 600 });
 
+// Constants
+const DEFAULT_CHART_NAME = 'Google Sheets Chart';
+const DEFAULT_CHART_SIZE = { width: 800, height: 500 };
+const CHART_ID_PREFIX = 'chart_';
+const SELECTION_REFRESH_DELAY = 100;
+
 // Helper function to send status messages to UI
 function sendStatusMessage(message: string, statusType: 'success' | 'error' | 'info' | 'warning' | 'processing' = 'info') {
   try { 
     figma.ui.postMessage({ type: 'status', message, statusType }); 
-  } catch {}
+  } catch (error) {
+    console.warn('Failed to send status message:', error);
+  }
 }
 
 // Helper function to show notification (Figma doesn't support auto-clearing)
@@ -126,20 +134,33 @@ function setChartDataInNode(node: SceneNode, chartData: ChartData): void {
   }
 }
 
+// Helper function to safely send UI messages
+function sendUIMessage(message: any): void {
+  try {
+    figma.ui.postMessage(message);
+  } catch (error) {
+    console.warn('Failed to send UI message:', error);
+  }
+}
+
+// Helper function to generate unique chart ID
+function generateChartId(): string {
+  return `${CHART_ID_PREFIX}${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
 // Listen for selection changes to update form fields
 figma.on('selectionchange', () => {
   // Send selection change event to UI
   try { 
     figma.ui.postMessage({ type: 'selection-changed' }); 
   } catch (error) {
-    // Silently handle UI communication errors
     console.warn('Failed to send selection change message:', error);
   }
   
   // Also refresh file context when selection changes (often happens when switching files)
   setTimeout(() => {
     sendChartsWithContext();
-  }, 100);
+  }, SELECTION_REFRESH_DELAY);
 });
 
 // Note: documentchange event requires loadAllPagesAsync in incremental mode
@@ -180,10 +201,10 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       const imageData = await figma.createImage(new Uint8Array(imageBuffer));
       
       // Create rectangle to hold the image (no frame needed)
-      const chartId = `chart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const chartId = generateChartId();
       const rect = figma.createRectangle();
-      rect.name = `${name || 'Google Sheets Chart'} (${chartId})`;
-      rect.resize(800, 500);
+      rect.name = `${name || DEFAULT_CHART_NAME} (${chartId})`;
+      rect.resize(DEFAULT_CHART_SIZE.width, DEFAULT_CHART_SIZE.height);
       rect.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
       
       // Center the image in the viewport
@@ -193,7 +214,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       sendStatusMessage('💾 Saving chart to history...', 'processing');
       const chartData: ChartData = {
         url,
-        name: name || 'Google Sheets Chart',
+        name: name || DEFAULT_CHART_NAME,
         lastUpdated: new Date().toISOString(),
         id: chartId
       };
@@ -218,7 +239,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
     } catch (error) {
       const message = 'Error inserting chart: ' + (error as Error).message;
       figma.notify(message, { error: true });
-      try { figma.ui.postMessage({ type: 'error', context: 'insert', message }); } catch {}
+      try { figma.ui.postMessage({ type: 'error', context: 'insert', message }); } catch (error) {
+        console.warn('Failed to send error message:', error);
+      }
     }
   }
   
@@ -226,14 +249,18 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
     try {
       const selection = figma.currentPage.selection;
       if (selection.length === 0) {
-        try { figma.ui.postMessage({ type: 'selected-chart-info', chartInfo: null }); } catch {}
+        try { figma.ui.postMessage({ type: 'selected-chart-info', chartInfo: null }); } catch (error) {
+          console.warn('Failed to send selected chart info:', error);
+        }
         return;
       }
       
       const targetNode = selection[0];
       
       if (!targetNode || targetNode.type !== 'RECTANGLE') {
-        try { figma.ui.postMessage({ type: 'selected-chart-info', chartInfo: null }); } catch {}
+        try { figma.ui.postMessage({ type: 'selected-chart-info', chartInfo: null }); } catch (error) {
+          console.warn('Failed to send selected chart info:', error);
+        }
         return;
       }
       
@@ -267,9 +294,13 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
               id: chartData.id
             }
           }); 
-        } catch {}
+        } catch (error) {
+          console.warn('Failed to send selected chart info:', error);
+        }
       } else {
-        try { figma.ui.postMessage({ type: 'selected-chart-info', chartInfo: null }); } catch {}
+        try { figma.ui.postMessage({ type: 'selected-chart-info', chartInfo: null }); } catch (error) {
+          console.warn('Failed to send selected chart info:', error);
+        }
       }
     } catch (error) {
       try { figma.ui.postMessage({ type: 'selected-chart-info', chartInfo: null }); } catch {}
@@ -361,7 +392,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         sendStatusMessage('🔄 Updating chart in Figma...', 'processing');
         targetNode.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
         showNotification('✅ Chart updated successfully!');
-        try { figma.ui.postMessage({ type: 'completion', message: '✅ Chart updated successfully!', statusType: 'success' }); } catch {}
+        try { figma.ui.postMessage({ type: 'completion', message: '✅ Chart updated successfully!', statusType: 'success' }); } catch (error) {
+          console.warn('Failed to send completion message:', error);
+        }
       }
       
       figma.notify('Chart updated successfully!');
@@ -378,7 +411,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       }
       
       figma.notify(message, { error: true });
-      try { figma.ui.postMessage({ type: 'error', context: 'update', message }); } catch {}
+      try { figma.ui.postMessage({ type: 'error', context: 'update', message }); } catch (error) {
+        console.warn('Failed to send error message:', error);
+      }
     }
   }
   
@@ -502,7 +537,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       
       if (updatedCount > 0) {
         showNotification(`🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
-        try { figma.ui.postMessage({ type: 'completion', message: `🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`, statusType: 'success' }); } catch {}
+        try { figma.ui.postMessage({ type: 'completion', message: `🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`, statusType: 'success' }); } catch (error) {
+          console.warn('Failed to send completion message:', error);
+        }
       } else if (errorCount === 0) {
         sendStatusMessage('ℹ️ All charts unchanged. Google Sheets may not have updated the published images yet.', 'warning');
       } else {
@@ -522,7 +559,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       }
       
       figma.notify(message, { error: true });
-      try { figma.ui.postMessage({ type: 'error', context: 'update-all', message }); } catch {}
+      try { figma.ui.postMessage({ type: 'error', context: 'update-all', message }); } catch (error) {
+        console.warn('Failed to send error message:', error);
+      }
     }
   }
   
@@ -598,7 +637,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       }
       
       showNotification(`✅ Chart URL updated from "${oldUrl}" to "${newUrl}"`);
-      try { figma.ui.postMessage({ type: 'completion', message: `✅ Chart URL updated from "${oldUrl}" to "${newUrl}"`, statusType: 'success' }); } catch {}
+      try { figma.ui.postMessage({ type: 'completion', message: `✅ Chart URL updated from "${oldUrl}" to "${newUrl}"`, statusType: 'success' }); } catch (error) {
+        console.warn('Failed to send completion message:', error);
+      }
       
       // Refresh the charts list with updated file context
       await sendChartsWithContext();
@@ -606,7 +647,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
     } catch (error) {
       const message = 'Error updating chart URL: ' + (error as Error).message;
       figma.notify(message, { error: true });
-      try { figma.ui.postMessage({ type: 'error', context: 'update-url', message }); } catch {}
+      try { figma.ui.postMessage({ type: 'error', context: 'update-url', message }); } catch (error) {
+        console.warn('Failed to send error message:', error);
+      }
     }
   }
   
@@ -662,7 +705,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       }
       
       showNotification(`✅ Chart name updated from "${oldName}" to "${newName}"`);
-      try { figma.ui.postMessage({ type: 'completion', message: `✅ Chart name updated from "${oldName}" to "${newName}"`, statusType: 'success' }); } catch {}
+      try { figma.ui.postMessage({ type: 'completion', message: `✅ Chart name updated from "${oldName}" to "${newName}"`, statusType: 'success' }); } catch (error) {
+        console.warn('Failed to send completion message:', error);
+      }
       
       // Refresh the charts list with updated file context
       await sendChartsWithContext();
@@ -670,7 +715,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
     } catch (error) {
       const message = 'Error updating chart name: ' + (error as Error).message;
       figma.notify(message, { error: true });
-      try { figma.ui.postMessage({ type: 'error', context: 'update-name', message }); } catch {}
+      try { figma.ui.postMessage({ type: 'error', context: 'update-name', message }); } catch (error) {
+        console.warn('Failed to send error message:', error);
+      }
     }
   }
   
@@ -693,8 +740,12 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       validateImageData(imageBuffer, contentType, imageUrl);
       
       showNotification('✅ Chart URL is working correctly! Image fetched successfully.');
-      try { figma.ui.postMessage({ type: 'completion', message: '✅ Chart URL is working correctly! Image fetched successfully.', statusType: 'success' }); } catch {}
-      try { figma.ui.postMessage({ type: 'success', message: 'Chart URL is working correctly! Image fetched successfully.' }); } catch {}
+      try { figma.ui.postMessage({ type: 'completion', message: '✅ Chart URL is working correctly! Image fetched successfully.', statusType: 'success' }); } catch (error) {
+        console.warn('Failed to send completion message:', error);
+      }
+      try { figma.ui.postMessage({ type: 'success', message: 'Chart URL is working correctly! Image fetched successfully.' }); } catch (error) {
+        console.warn('Failed to send success message:', error);
+      }
       
     } catch (error) {
       let message = 'Error testing chart URL: ' + (error as Error).message;
@@ -709,7 +760,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       }
       
       figma.notify(message, { error: true });
-      try { figma.ui.postMessage({ type: 'error', context: 'test', message }); } catch {}
+      try { figma.ui.postMessage({ type: 'error', context: 'test', message }); } catch (error) {
+        console.warn('Failed to send error message:', error);
+      }
     }
   }
   
@@ -735,7 +788,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
     } catch (error) {
       const message = 'Error removing chart: ' + (error as Error).message;
       figma.notify(message, { error: true });
-      try { figma.ui.postMessage({ type: 'error', context: 'delete', message }); } catch {}
+      try { figma.ui.postMessage({ type: 'error', context: 'delete', message }); } catch (error) {
+        console.warn('Failed to send error message:', error);
+      }
     }
   }
 };
