@@ -90,6 +90,11 @@ async function sendChartsWithContext() {
 // Initial load of chart data with file context
 sendChartsWithContext();
 
+// Refresh context when plugin becomes active (file switching)
+figma.on('run', () => {
+  sendChartsWithContext();
+});
+
 // Helper function to get chart data from node's plugin data
 function getChartDataFromNode(node: SceneNode): ChartData | null {
   try {
@@ -121,13 +126,15 @@ figma.on('selectionchange', () => {
     // Silently handle UI communication errors
     console.warn('Failed to send selection change message:', error);
   }
+  
+  // Also refresh file context when selection changes (often happens when switching files)
+  setTimeout(() => {
+    sendChartsWithContext();
+  }, 100);
 });
 
-// Listen for file changes to refresh chart context
-figma.on('documentchange', () => {
-  // Refresh charts with updated file context when document changes
-  sendChartsWithContext();
-});
+// Note: documentchange event requires loadAllPagesAsync in incremental mode
+// Instead, we'll refresh context on other events and when UI requests it
 
 interface PluginMessage {
   type: string;
