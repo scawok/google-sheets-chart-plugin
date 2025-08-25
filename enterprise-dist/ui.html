@@ -744,6 +744,12 @@
         addStatusMessage(msg.message, msg.statusType || 'info');
         return;
       }
+      
+      if (msg.type === 'notification-cleared') {
+        // Track that a notification was cleared (for future reference)
+        console.log('Notification cleared:', msg.message);
+        return;
+      }
     };
     
     // Show error message
@@ -799,14 +805,21 @@
       statusMessages.appendChild(messageDiv);
       statusMessages.scrollTop = statusMessages.scrollHeight;
       
-      // Auto-collapse after 5 seconds if no activity
-      setTimeout(() => {
+      // Auto-remove old messages (keep only last 20)
+      const messages = statusMessages.querySelectorAll('.status-message');
+      if (messages.length > 20) {
+        messages[0].remove();
+      }
+      
+      // Auto-collapse after 10 seconds if no activity
+      clearTimeout(window.autoCollapseTimeout);
+      window.autoCollapseTimeout = setTimeout(() => {
         const statusContent = document.getElementById('statusContent');
         if (!statusContent.classList.contains('collapsed')) {
           statusContent.classList.add('collapsed');
           document.getElementById('statusToggle').textContent = '+';
         }
-      }, 5000);
+      }, 10000);
     }
     
     // Get status icon based on type

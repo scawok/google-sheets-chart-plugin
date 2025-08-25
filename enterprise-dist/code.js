@@ -16,6 +16,20 @@ function sendStatusMessage(message, statusType = 'info') {
     }
     catch (_a) { }
 }
+// Helper function to show notification with auto-clear
+function showNotification(message, options = {}) {
+    const { error = false, timeout = 3000 } = options;
+    figma.notify(message, { error });
+    // Auto-clear notification after timeout
+    setTimeout(() => {
+        // Note: Figma doesn't provide a direct way to clear notifications
+        // But we can send a message to the UI to track this
+        try {
+            figma.ui.postMessage({ type: 'notification-cleared', message });
+        }
+        catch (_a) { }
+    }, timeout);
+}
 // Helper function to fetch image data with CORS handling
 function fetchImageData(imageUrl) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -68,18 +82,18 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
     if (msg.type === 'insert-chart') {
         try {
             const { url, name } = msg;
-            figma.notify('🔄 Downloading chart from Google Sheets...');
+            showNotification('🔄 Downloading chart from Google Sheets...', { timeout: 2000 });
             sendStatusMessage('🔄 Downloading chart from Google Sheets...', 'processing');
             // Convert Google Sheets chart URL to image URL
             const imageUrl = convertToImageUrl(url);
             // Download and validate the image data
-            figma.notify('📥 Downloading image data...');
+            showNotification('📥 Downloading image data...', { timeout: 1500 });
             sendStatusMessage('📥 Downloading image data...', 'processing');
             const { imageBuffer, contentType } = yield fetchImageData(imageUrl);
-            figma.notify('🔍 Validating image format...');
+            showNotification('🔍 Validating image format...', { timeout: 1500 });
             sendStatusMessage('🔍 Validating image format...', 'processing');
             validateImageData(imageBuffer, contentType, imageUrl);
-            figma.notify('🖼️ Creating chart in Figma...');
+            showNotification('🖼️ Creating chart in Figma...', { timeout: 1500 });
             sendStatusMessage('🖼️ Creating chart in Figma...', 'processing');
             const imageData = yield figma.createImage(new Uint8Array(imageBuffer));
             // Create rectangle to hold the image (no frame needed)
@@ -91,7 +105,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             // Center the image in the viewport
             figma.viewport.scrollAndZoomIntoView([rect]);
             // Store chart data
-            figma.notify('💾 Saving chart to history...');
+            showNotification('💾 Saving chart to history...', { timeout: 1500 });
             sendStatusMessage('💾 Saving chart to history...', 'processing');
             const charts = (yield figma.clientStorage.getAsync('charts')) || [];
             charts.push({
@@ -101,7 +115,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 id: chartId
             });
             yield figma.clientStorage.setAsync('charts', charts);
-            figma.notify('✅ Chart inserted successfully!');
+            showNotification('✅ Chart inserted successfully!', { timeout: 5000 });
             sendStatusMessage('✅ Chart inserted successfully!', 'success');
         }
         catch (error) {
@@ -115,7 +129,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
     }
     if (msg.type === 'update-chart') {
         try {
-            figma.notify('🔍 Looking for selected chart...');
+            showNotification('🔍 Looking for selected chart...', { timeout: 1500 });
             sendStatusMessage('🔍 Looking for selected chart...', 'processing');
             // Find the selected rectangle to update
             const selection = figma.currentPage.selection;
@@ -127,7 +141,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 throw new Error('Please select a chart rectangle to update');
             }
             // Find the chart URL from stored charts by matching the rectangle name or ID
-            figma.notify('🔗 Finding chart URL in history...');
+            showNotification('🔗 Finding chart URL in history...', { timeout: 1500 });
             sendStatusMessage('🔗 Finding chart URL in history...', 'processing');
             const charts = (yield figma.clientStorage.getAsync('charts')) || [];
             const matchingChart = charts.find(chart => {
@@ -145,40 +159,40 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 throw new Error(`No stored URL found for chart "${targetNode.name}". Please use "Insert Chart" instead.`);
             }
             // Convert URL to image URL with cache-busting parameter
-            figma.notify('🔄 Downloading updated chart from Google Sheets...');
+            showNotification('🔄 Downloading updated chart from Google Sheets...', { timeout: 2000 });
             sendStatusMessage('🔄 Downloading updated chart from Google Sheets...', 'processing');
             const imageUrl = convertToImageUrl(matchingChart.url) + `&t=${Date.now()}`;
             // Download and validate the image data
-            figma.notify('📥 Downloading image data...');
+            showNotification('📥 Downloading image data...', { timeout: 1500 });
             sendStatusMessage('📥 Downloading image data...', 'processing');
             const { imageBuffer, contentType } = yield fetchImageData(imageUrl);
-            figma.notify('🔍 Validating image format...');
+            showNotification('🔍 Validating image format...', { timeout: 1500 });
             sendStatusMessage('🔍 Validating image format...', 'processing');
             validateImageData(imageBuffer, contentType, imageUrl);
-            figma.notify('🖼️ Creating updated image...');
+            showNotification('🖼️ Creating updated image...', { timeout: 1500 });
             sendStatusMessage('🖼️ Creating updated image...', 'processing');
             const imageData = yield figma.createImage(new Uint8Array(imageBuffer));
             // Check if the image actually changed
-            figma.notify('🔍 Checking if chart has changed...');
+            showNotification('🔍 Checking if chart has changed...', { timeout: 1500 });
             sendStatusMessage('🔍 Checking if chart has changed...', 'processing');
             const currentFills = targetNode.fills;
             const oldImageHash = Array.isArray(currentFills) && currentFills.length > 0 && currentFills[0].type === 'IMAGE'
                 ? currentFills[0].imageHash
                 : null;
             if (oldImageHash === imageData.hash) {
-                figma.notify('ℹ️ Chart image unchanged. Google Sheets may not have updated the published image yet. Try re-publishing the chart in Google Sheets.');
+                showNotification('ℹ️ Chart image unchanged. Google Sheets may not have updated the published image yet.', { timeout: 5000 });
                 sendStatusMessage('ℹ️ Chart image unchanged. Google Sheets may not have updated the published image yet.', 'warning');
             }
             else {
                 // Update the rectangle's fill
-                figma.notify('🔄 Updating chart in Figma...');
+                showNotification('🔄 Updating chart in Figma...', { timeout: 1500 });
                 sendStatusMessage('🔄 Updating chart in Figma...', 'processing');
                 targetNode.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
-                figma.notify('✅ Chart updated successfully!');
+                showNotification('✅ Chart updated successfully!', { timeout: 5000 });
                 sendStatusMessage('✅ Chart updated successfully!', 'success');
             }
             // Update last updated time
-            figma.notify('💾 Updating chart timestamp...');
+            showNotification('💾 Updating chart timestamp...', { timeout: 1500 });
             sendStatusMessage('💾 Updating chart timestamp...', 'processing');
             const chartIndex = charts.findIndex(chart => chart.url === matchingChart.url);
             if (chartIndex !== -1) {
@@ -212,7 +226,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             if (charts.length === 0) {
                 throw new Error('No charts found in history');
             }
-            figma.notify('🔍 Loading pages and searching for charts...');
+            showNotification('🔍 Loading pages and searching for charts...', { timeout: 2000 });
             sendStatusMessage('🔍 Loading pages and searching for charts...', 'processing');
             // Find all chart rectangles in the entire file (all pages)
             const allRectangles = [];
@@ -236,7 +250,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             }
             // If we couldn't load any pages, try just the current page
             if (pagesLoaded === 0 && pagesFailed > 0) {
-                figma.notify('⚠️ Could not load all pages. Searching current page only...');
+                showNotification('⚠️ Could not load all pages. Searching current page only...', { timeout: 4000 });
                 sendStatusMessage('⚠️ Could not load all pages. Searching current page only...', 'warning');
                 try {
                     const currentPage = figma.currentPage;
@@ -250,7 +264,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             }
             let updatedCount = 0;
             let errorCount = 0;
-            figma.notify(`🔍 Found ${allRectangles.length} rectangles. Checking for charts...`);
+            showNotification(`🔍 Found ${allRectangles.length} rectangles. Checking for charts...`, { timeout: 2000 });
             sendStatusMessage(`🔍 Found ${allRectangles.length} rectangles. Checking for charts...`, 'info');
             for (const rect of allRectangles) {
                 // Check if this rectangle name matches any chart in our history
@@ -268,7 +282,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 });
                 if (matchingChart) {
                     try {
-                        figma.notify(`🔄 Updating chart: ${rect.name}...`);
+                        showNotification(`🔄 Updating chart: ${rect.name}...`, { timeout: 2000 });
                         sendStatusMessage(`🔄 Updating chart: ${rect.name}...`, 'processing');
                         // Convert URL to image URL with cache-busting parameter
                         const imageUrl = convertToImageUrl(matchingChart.url) + `&t=${Date.now()}`;
@@ -284,11 +298,11 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                         if (oldImageHash !== imageData.hash) {
                             rect.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
                             updatedCount++;
-                            figma.notify(`✅ Updated: ${rect.name}`);
+                            showNotification(`✅ Updated: ${rect.name}`, { timeout: 3000 });
                             sendStatusMessage(`✅ Updated: ${rect.name}`, 'success');
                         }
                         else {
-                            figma.notify(`ℹ️ No changes: ${rect.name}`);
+                            showNotification(`ℹ️ No changes: ${rect.name}`, { timeout: 3000 });
                             sendStatusMessage(`ℹ️ No changes: ${rect.name}`, 'info');
                         }
                         // Update last updated time
@@ -317,11 +331,11 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             // Save updated timestamps
             yield figma.clientStorage.setAsync('charts', charts);
             if (updatedCount > 0) {
-                figma.notify(`🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+                showNotification(`🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`, { timeout: 6000 });
                 sendStatusMessage(`🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`, 'success');
             }
             else if (errorCount === 0) {
-                figma.notify('ℹ️ All charts unchanged. Google Sheets may not have updated the published images yet. Try re-publishing charts in Google Sheets.');
+                showNotification('ℹ️ All charts unchanged. Google Sheets may not have updated the published images yet.', { timeout: 6000 });
                 sendStatusMessage('ℹ️ All charts unchanged. Google Sheets may not have updated the published images yet.', 'warning');
             }
             else {
@@ -350,18 +364,18 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
     if (msg.type === 'test-chart-url') {
         try {
             const { url } = msg;
-            figma.notify('🔍 Testing chart URL...');
+            showNotification('🔍 Testing chart URL...', { timeout: 2000 });
             sendStatusMessage('🔍 Testing chart URL...', 'processing');
             // Convert URL to image URL with cache-busting
             const imageUrl = convertToImageUrl(url) + `&t=${Date.now()}`;
             // Test the URL by attempting to fetch the image
-            figma.notify('📥 Downloading test image...');
+            showNotification('📥 Downloading test image...', { timeout: 2000 });
             sendStatusMessage('📥 Downloading test image...', 'processing');
             const { imageBuffer, contentType } = yield fetchImageData(imageUrl);
-            figma.notify('🔍 Validating image format...');
+            showNotification('🔍 Validating image format...', { timeout: 2000 });
             sendStatusMessage('🔍 Validating image format...', 'processing');
             validateImageData(imageBuffer, contentType, imageUrl);
-            figma.notify('✅ Chart URL is working correctly! Image fetched successfully.');
+            showNotification('✅ Chart URL is working correctly! Image fetched successfully.', { timeout: 5000 });
             sendStatusMessage('✅ Chart URL is working correctly! Image fetched successfully.', 'success');
             try {
                 figma.ui.postMessage({ type: 'success', message: 'Chart URL is working correctly! Image fetched successfully.' });
