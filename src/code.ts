@@ -77,101 +77,12 @@ function getFileStorageKey(): string {
   return `charts_${figma.fileKey}`;
 }
 
-// Helper function to migrate old charts to file-specific storage
-async function migrateOldCharts(): Promise<ChartData[]> {
-  try {
-    // Check for old global storage
-    const oldCharts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
-    if (oldCharts.length > 0) {
-      // Find charts that belong to the current file by checking if they exist in the file
-      const fileSpecificCharts: ChartData[] = [];
-      
-      for (const chart of oldCharts) {
-        // Look for chart nodes in the current file that match this chart
-        const foundInFile = await findChartInCurrentFile(chart);
-        if (foundInFile) {
-          fileSpecificCharts.push(chart);
-        }
-      }
-      
-      // If we found charts for this file, save them to file-specific storage
-      if (fileSpecificCharts.length > 0) {
-        const storageKey = getFileStorageKey();
-        await figma.clientStorage.setAsync(storageKey, fileSpecificCharts);
-        
-        // Remove migrated charts from old storage
-        const remainingCharts = oldCharts.filter(chart => 
-          !fileSpecificCharts.some(fc => fc.id === chart.id)
-        );
-        
-        if (remainingCharts.length === 0) {
-          // All charts migrated, remove old storage
-          await figma.clientStorage.deleteAsync('charts');
-        } else {
-          // Some charts remain, update old storage
-          await figma.clientStorage.setAsync('charts', remainingCharts);
-        }
-        
-        return fileSpecificCharts;
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to migrate old charts:', error);
-  }
-  
-  return [];
-}
 
-// Helper function to find if a chart exists in the current file
-async function findChartInCurrentFile(chart: ChartData): Promise<boolean> {
-  try {
-    // Search for chart nodes in the current file
-    const chartNodes = figma.currentPage.findAll(node => 
-      node.type === 'RECTANGLE' && 
-      node.name.includes(chart.id)
-    );
-    
-    if (chartNodes.length > 0) {
-      return true;
-    }
-    
-    // Also check other pages in the file
-    for (const page of figma.root.children) {
-      if (page.type === 'PAGE') {
-        try {
-          await page.loadAsync();
-          const pageChartNodes = page.findAll(node => 
-            node.type === 'RECTANGLE' && 
-            node.name.includes(chart.id)
-          );
-          if (pageChartNodes.length > 0) {
-            return true;
-          }
-        } catch (pageError) {
-          // Skip pages that can't be loaded
-          console.warn(`Could not load page "${page.name}" for migration:`, pageError);
-        }
-      }
-    }
-  } catch (error) {
-    console.warn('Error searching for chart in current file:', error);
-  }
-  
-  return false;
-}
 
 // Helper function to send charts with file context
 async function sendChartsWithContext() {
   const storageKey = getFileStorageKey();
-  let charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
-  
-  // If no charts in file-specific storage, try to migrate old charts
-  if (charts.length === 0) {
-    const migratedCharts = await migrateOldCharts();
-    if (migratedCharts.length > 0) {
-      charts = migratedCharts;
-    }
-  }
+  const charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
   
   const fileContext = {
     fileName: figma.root.name,
