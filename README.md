@@ -125,6 +125,8 @@ This project is open source and available under the [MIT License](LICENSE).
 1. **CORS Errors**: The plugin automatically handles CORS issues using a proxy service
 2. **Chart Not Found**: Make sure your Google Sheets chart is published publicly
 3. **Update Fails**: Ensure the chart URL contains `/pubchart` and is accessible
+4. **No Updates Appearing**: Save your Google Sheets document first, then try updating
+5. **Charts Not Updating**: The plugin now detects when images haven't changed and notifies you
 
 ### Getting Help
 
@@ -140,10 +142,12 @@ This project is open source and available under the [MIT License](LICENSE).
 - Chart history with easy access to previous charts
 
 ### Update System
-- Individual chart updates
+- Individual chart updates with cache-busting
 - Batch updates across all pages
+- Smart change detection (only updates when images actually change)
 - Error handling and progress tracking
 - Automatic fallback mechanisms
+- User-friendly notifications about update status
 
 ### UI/UX
 - Modern, dark-themed interface
