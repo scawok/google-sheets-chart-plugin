@@ -125,6 +125,11 @@
       background: #2a2a2a;
     }
     
+    .form-group input.changed {
+      border-color: #4CAF50 !important;
+      background: rgba(76, 175, 80, 0.05);
+    }
+    
     .form-group input::placeholder {
       color: #8a8a8a;
     }
@@ -189,6 +194,39 @@
       opacity: 0.6;
       cursor: not-allowed;
       transform: none !important;
+    }
+    
+    #updateNameBtn {
+      background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+      color: white;
+      border: none;
+      animation: fadeIn 0.3s ease;
+      font-size: 11px;
+      padding: 8px 12px;
+    }
+    
+    #updateNameBtn:hover {
+      background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
+      transform: translateY(-1px);
+    }
+    
+    #updateUrlBtn {
+      background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+      color: white;
+      border: none;
+      animation: fadeIn 0.3s ease;
+      font-size: 11px;
+      padding: 8px 12px;
+    }
+    
+    #updateUrlBtn:hover {
+      background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+      transform: translateY(-1px);
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
     }
     
     .help-card {
@@ -462,7 +500,6 @@
       padding: 12px 16px;
       background: rgba(255, 255, 255, 0.05);
       border-bottom: 1px solid #333333;
-      font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
       font-size: 12px;
       line-height: 1.4;
       min-height: 20px;
@@ -493,6 +530,11 @@
       border-left: 4px solid #FF9800;
     }
     
+    .status-current strong {
+      font-weight: 600;
+      color: #ffffff;
+    }
+    
     .status-content {
       max-height: 150px;
       overflow-y: auto;
@@ -518,7 +560,6 @@
       background: rgba(255, 255, 255, 0.03);
       border-radius: 4px;
       border-left: 2px solid #666666;
-      font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
       font-size: 11px;
       line-height: 1.3;
     }
@@ -595,24 +636,27 @@
     <!-- Insert Chart Tab -->
     <div class="tab-panel active" id="insert-panel">
       <div class="form-group">
-        <label for="chartName">Chart Name</label>
+        <label for="chartName" id="chartNameLabel">New Chart Name</label>
         <input type="text" id="chartName" placeholder="My Chart (optional)">
+        <button class="btn btn-secondary" id="updateNameBtn" style="display: none; margin-top: 8px; width: 100%;">
+          Update Chart Name
+        </button>
       </div>
       
       <div class="form-group">
-        <label for="chartUrl">Google Sheets Chart URL</label>
+        <label for="chartUrl" id="chartUrlLabel">New Google Sheets Chart URL</label>
         <input type="text" id="chartUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
+        <button class="btn btn-secondary" id="updateUrlBtn" style="display: none; margin-top: 8px; width: 100%;">
+          Update Chart URL
+        </button>
       </div>
       
       <div class="button-group">
         <button class="btn btn-primary" id="insertBtn">
           Insert Chart
         </button>
-        <button class="btn btn-secondary" id="updateBtn">
-          Update Selected
-        </button>
         <button class="btn btn-secondary" id="updateAllBtn">
-          Update All
+          Update All Charts in File
         </button>
       </div>
       
@@ -757,6 +801,21 @@
       initTabs();
       initStatusPanel();
       parent.postMessage({ pluginMessage: { type: 'load-charts' } }, '*');
+      
+      // Initialize button mode
+      const insertBtn = document.getElementById('insertBtn');
+      insertBtn.dataset.mode = 'insert';
+      
+      // Check if there's already a chart selected
+      setTimeout(() => {
+        parent.postMessage({ pluginMessage: { type: 'get-selected-chart-info' } }, '*');
+      }, 100);
+      
+      // Add event listeners to chart inputs for change detection
+      const chartNameInput = document.getElementById('chartName');
+      const chartUrlInput = document.getElementById('chartUrl');
+      chartNameInput.addEventListener('input', checkNameChange);
+      chartUrlInput.addEventListener('input', checkUrlChange);
     };
     
     // Handle messages from the plugin
@@ -787,6 +846,45 @@
       
       if (msg.type === 'status') {
         addStatusMessage(msg.message, msg.statusType || 'info');
+        return;
+      }
+      
+      if (msg.type === 'selection-changed') {
+        // Request info about the selected chart
+        parent.postMessage({ pluginMessage: { type: 'get-selected-chart-info' } }, '*');
+        return;
+      }
+      
+      if (msg.type === 'selected-chart-info') {
+        updateFormWithSelectedChart(msg.chartInfo);
+        return;
+      }
+      
+      if (msg.type === 'chart-name-updated') {
+        // Refresh the charts list to show the updated name
+        charts = msg.charts || charts;
+        renderCharts();
+        
+        // Update the original name in the input field and hide the button
+        const chartNameInput = document.getElementById('chartName');
+        chartNameInput.dataset.originalName = chartNameInput.value.trim();
+        chartNameInput.classList.remove('changed');
+        document.getElementById('updateNameBtn').style.display = 'none';
+        
+        return;
+      }
+      
+      if (msg.type === 'chart-url-updated') {
+        // Refresh the charts list to show the updated URL
+        charts = msg.charts || charts;
+        renderCharts();
+        
+        // Update the original URL in the input field and hide the button
+        const chartUrlInput = document.getElementById('chartUrl');
+        chartUrlInput.dataset.originalUrl = chartUrlInput.value.trim();
+        chartUrlInput.classList.remove('changed');
+        document.getElementById('updateUrlBtn').style.display = 'none';
+        
         return;
       }
       
@@ -841,7 +939,7 @@
         <span class="status-text">${simplifiedMessage}</span>
       `;
       
-      // Add to history
+      // Add to history (at the top)
       const messageDiv = document.createElement('div');
       messageDiv.className = `status-message ${type}`;
       
@@ -855,8 +953,12 @@
         </div>
       `;
       
-      statusMessages.appendChild(messageDiv);
-      statusMessages.scrollTop = statusMessages.scrollHeight;
+      // Insert at the top of the list
+      if (statusMessages.firstChild) {
+        statusMessages.insertBefore(messageDiv, statusMessages.firstChild);
+      } else {
+        statusMessages.appendChild(messageDiv);
+      }
       
       // Auto-remove old messages (keep only last 15)
       const messages = statusMessages.querySelectorAll('.status-message');
@@ -896,12 +998,12 @@
         .replace(/🔄 Updating chart: (.+)\.\.\./, 'UPDATING_CHART: $1')
         .replace(/✅ Updated: (.+)/, 'UPDATED: $1')
         .replace(/ℹ️ No changes: (.+)/, 'NO_CHANGES: $1')
-        .replace(/🎉 Successfully updated (\d+) chart(s?) across all pages!.*/, 'SUCCESS: Updated $1 chart$2')
-        .replace('ℹ️ All charts unchanged. Google Sheets may not have updated the published images yet.', 'NO_UPDATES: Charts unchanged')
-        .replace('✅ Chart inserted successfully!', 'SUCCESS: Chart inserted')
-        .replace('✅ Chart updated successfully!', 'SUCCESS: Chart updated')
-        .replace('✅ Chart URL is working correctly! Image fetched successfully.', 'SUCCESS: URL test passed')
-        .replace('ℹ️ Chart image unchanged. Google Sheets may not have updated the published image yet.', 'WARNING: Chart unchanged')
+        .replace(/🎉 Successfully updated (\d+) chart(s?) across all pages!.*/, 'DONE: Updated $1 chart$2')
+        .replace('ℹ️ All charts unchanged. Google Sheets may not have updated the published images yet.', 'DONE: No updates needed')
+        .replace('✅ Chart inserted successfully!', 'DONE: Chart inserted')
+        .replace('✅ Chart updated successfully!', 'DONE: Chart updated')
+        .replace('✅ Chart URL is working correctly! Image fetched successfully.', 'DONE: URL test passed')
+        .replace('ℹ️ Chart image unchanged. Google Sheets may not have updated the published image yet.', 'DONE: Chart unchanged')
         .replace('🔍 Testing chart URL...', 'TESTING_URL');
     }
     
@@ -935,46 +1037,158 @@
       statusCurrent.className = `status-current ${type}`;
       statusCurrent.innerHTML = `
         <span class="status-icon">${icon}</span>
-        <span class="status-text">DONE: ${simplifiedMessage}</span>
+        <span class="status-text"><strong>DONE</strong> - ${simplifiedMessage}</span>
       `;
       
       // Add to history
       addStatusMessage(message, type);
     }
     
-    // Insert chart button
-    document.getElementById('insertBtn').addEventListener('click', () => {
-      const url = document.getElementById('chartUrl').value.trim();
-      const name = document.getElementById('chartName').value.trim();
+    // Check if chart name has changed and show/hide update button
+    function checkNameChange() {
+      const chartNameInput = document.getElementById('chartName');
+      const updateNameBtn = document.getElementById('updateNameBtn');
+      const originalName = chartNameInput.dataset.originalName;
+      const currentName = chartNameInput.value.trim();
       
-      if (!url) {
-        showError('Please enter a Google Sheets chart URL');
-        return;
+      // Only show button if we have an original name (chart is selected) and the name has changed
+      if (originalName && currentName && currentName !== originalName) {
+        updateNameBtn.style.display = 'block';
+        chartNameInput.classList.add('changed');
+      } else {
+        updateNameBtn.style.display = 'none';
+        chartNameInput.classList.remove('changed');
       }
-      
-      hideError();
-      
-      parent.postMessage({
-        pluginMessage: {
-          type: 'insert-chart',
-          url: url,
-          name: name
-        }
-      }, '*');
-      
-      // Clear inputs
-      document.getElementById('chartUrl').value = '';
-      document.getElementById('chartName').value = '';
-    });
+    }
     
-    // Update selected chart button
-    document.getElementById('updateBtn').addEventListener('click', () => {
-      hideError();
-      parent.postMessage({
-        pluginMessage: {
-          type: 'update-chart'
+    // Check if chart URL has changed and show/hide update button
+    function checkUrlChange() {
+      const chartUrlInput = document.getElementById('chartUrl');
+      const updateUrlBtn = document.getElementById('updateUrlBtn');
+      const originalUrl = chartUrlInput.dataset.originalUrl;
+      const currentUrl = chartUrlInput.value.trim();
+      
+      console.log('URL change check:', { originalUrl, currentUrl, hasOriginal: !!originalUrl, hasCurrent: !!currentUrl, isDifferent: originalUrl !== currentUrl });
+      
+      // Only show button if we have an original URL (chart is selected) and the URL has changed
+      if (originalUrl && currentUrl && currentUrl !== originalUrl) {
+        updateUrlBtn.style.display = 'block';
+        chartUrlInput.classList.add('changed');
+        console.log('Showing URL update button');
+      } else {
+        updateUrlBtn.style.display = 'none';
+        chartUrlInput.classList.remove('changed');
+        console.log('Hiding URL update button');
+      }
+    }
+    
+    // Update form fields with selected chart info
+    function updateFormWithSelectedChart(chartInfo) {
+      const chartNameInput = document.getElementById('chartName');
+      const chartUrlInput = document.getElementById('chartUrl');
+      const chartNameLabel = document.getElementById('chartNameLabel');
+      const chartUrlLabel = document.getElementById('chartUrlLabel');
+      const updateNameBtn = document.getElementById('updateNameBtn');
+      const updateUrlBtn = document.getElementById('updateUrlBtn');
+      const insertBtn = document.getElementById('insertBtn');
+      
+      if (chartInfo) {
+        // Populate form fields with selected chart data
+        chartNameInput.value = chartInfo.name;
+        chartUrlInput.value = chartInfo.url;
+        
+        // Store the original chart info for comparison
+        chartNameInput.dataset.originalName = chartInfo.name;
+        chartNameInput.dataset.chartId = chartInfo.id;
+        chartUrlInput.dataset.originalUrl = chartInfo.url;
+        chartUrlInput.dataset.chartId = chartInfo.id;
+        
+        console.log('Stored chart info:', { 
+          name: chartInfo.name, 
+          url: chartInfo.url, 
+          id: chartInfo.id,
+          storedUrl: chartUrlInput.dataset.originalUrl 
+        });
+        
+        // Hide the update buttons initially
+        updateNameBtn.style.display = 'none';
+        updateUrlBtn.style.display = 'none';
+        
+        // Change main button to "Update Selected Chart"
+        insertBtn.textContent = 'Update Selected Chart';
+        insertBtn.dataset.mode = 'update';
+        
+        // Update field labels to indicate selected chart
+        chartNameLabel.textContent = 'Selected Chart Name';
+        chartUrlLabel.textContent = 'Selected Chart URL';
+        
+        // Add a small indicator
+        addStatusMessage(`📋 Form populated from selected chart: ${chartInfo.name}`, 'info');
+      } else {
+        // Clear form fields if no chart is selected
+        chartNameInput.value = '';
+        chartUrlInput.value = '';
+        
+        // Hide the update buttons
+        updateNameBtn.style.display = 'none';
+        updateUrlBtn.style.display = 'none';
+        
+        // Change main button back to "Insert Chart"
+        insertBtn.textContent = 'Insert Chart';
+        insertBtn.dataset.mode = 'insert';
+        
+        // Update field labels to indicate new chart
+        chartNameLabel.textContent = 'New Chart Name';
+        chartUrlLabel.textContent = 'New Google Sheets Chart URL';
+        
+        // Clear stored data
+        delete chartNameInput.dataset.originalName;
+        delete chartNameInput.dataset.chartId;
+        delete chartUrlInput.dataset.originalUrl;
+        delete chartUrlInput.dataset.chartId;
+        
+        // Clear progress status when chart is deselected
+        clearStatusMessages();
+      }
+    }
+    
+    // Insert/Update chart button
+    document.getElementById('insertBtn').addEventListener('click', () => {
+      const insertBtn = document.getElementById('insertBtn');
+      const mode = insertBtn.dataset.mode;
+      
+      if (mode === 'update') {
+        // Update selected chart
+        hideError();
+        parent.postMessage({
+          pluginMessage: {
+            type: 'update-chart'
+          }
+        }, '*');
+      } else {
+        // Insert new chart
+        const url = document.getElementById('chartUrl').value.trim();
+        const name = document.getElementById('chartName').value.trim();
+        
+        if (!url) {
+          showError('Please enter a Google Sheets chart URL');
+          return;
         }
-      }, '*');
+        
+        hideError();
+        
+        parent.postMessage({
+          pluginMessage: {
+            type: 'insert-chart',
+            url: url,
+            name: name
+          }
+        }, '*');
+        
+        // Clear inputs
+        document.getElementById('chartUrl').value = '';
+        document.getElementById('chartName').value = '';
+      }
     });
     
     // Update all charts button
@@ -984,6 +1198,58 @@
         pluginMessage: {
           type: 'update-all-charts'
         }
+      }, '*');
+    });
+    
+    // Update chart name button
+    document.getElementById('updateNameBtn').addEventListener('click', () => {
+      const chartNameInput = document.getElementById('chartName');
+      const newName = chartNameInput.value.trim();
+      const originalName = chartNameInput.dataset.originalName;
+      const chartId = chartNameInput.dataset.chartId;
+      
+      if (!newName) {
+        addStatusMessage('❌ Chart name cannot be empty', 'error');
+        return;
+      }
+      
+      if (newName === originalName) {
+        addStatusMessage('ℹ️ Chart name unchanged', 'info');
+        return;
+      }
+      
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'update-chart-name', 
+          chartId: chartId,
+          newName: newName 
+        } 
+      }, '*');
+    });
+    
+    // Update chart URL button
+    document.getElementById('updateUrlBtn').addEventListener('click', () => {
+      const chartUrlInput = document.getElementById('chartUrl');
+      const newUrl = chartUrlInput.value.trim();
+      const originalUrl = chartUrlInput.dataset.originalUrl;
+      const chartId = chartUrlInput.dataset.chartId;
+      
+      if (!newUrl) {
+        addStatusMessage('❌ Chart URL cannot be empty', 'error');
+        return;
+      }
+      
+      if (newUrl === originalUrl) {
+        addStatusMessage('ℹ️ Chart URL unchanged', 'info');
+        return;
+      }
+      
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'update-chart-url', 
+          chartId: chartId,
+          newUrl: newUrl 
+        } 
       }, '*');
     });
     
