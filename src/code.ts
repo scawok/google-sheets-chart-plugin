@@ -414,6 +414,61 @@ figma.ui.onmessage = async (msg) => {
     }
   }
   
+  if (msg.type === 'update-chart-name') {
+    try {
+      const { chartId, newName } = msg;
+      
+      if (!chartId || !newName) {
+        throw new Error('Missing chart ID or new name');
+      }
+      
+      sendStatusMessage('💾 Updating chart name...', 'processing');
+      
+      // Find the chart in storage and update its name
+      const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
+      const chartIndex = charts.findIndex(chart => chart.id === chartId);
+      
+      if (chartIndex === -1) {
+        throw new Error('Chart not found in history');
+      }
+      
+      const oldName = charts[chartIndex].name;
+      charts[chartIndex].name = newName;
+      
+      // Update the chart's last updated time
+      charts[chartIndex].lastUpdated = new Date().toISOString();
+      
+      // Save the updated charts
+      await figma.clientStorage.setAsync('charts', charts);
+      
+      // Update the rectangle name in Figma if it exists
+      const selection = figma.currentPage.selection;
+      if (selection.length > 0) {
+        const targetNode = selection[0];
+        if (targetNode.type === 'RECTANGLE') {
+          // Update the rectangle name to match the new chart name
+          const idMatch = targetNode.name.match(/\(chart_[^)]+\)$/);
+          if (idMatch) {
+            targetNode.name = `${newName} (${idMatch[0].slice(1, -1)})`;
+          } else {
+            targetNode.name = newName;
+          }
+        }
+      }
+      
+      showNotification(`✅ Chart name updated from "${oldName}" to "${newName}"`);
+      try { figma.ui.postMessage({ type: 'completion', message: `✅ Chart name updated from "${oldName}" to "${newName}"`, statusType: 'success' }); } catch {}
+      
+      // Send updated charts list to refresh the UI
+      try { figma.ui.postMessage({ type: 'chart-name-updated', charts }); } catch {}
+      
+    } catch (error) {
+      const message = 'Error updating chart name: ' + (error as Error).message;
+      figma.notify(message, { error: true });
+      try { figma.ui.postMessage({ type: 'error', context: 'update-name', message }); } catch {}
+    }
+  }
+  
   if (msg.type === 'test-chart-url') {
     try {
       const { url } = msg;

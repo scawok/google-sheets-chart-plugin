@@ -196,6 +196,23 @@
       transform: none !important;
     }
     
+    #updateNameBtn {
+      background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+      color: white;
+      border: none;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    #updateNameBtn:hover {
+      background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
+      transform: translateY(-1px);
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
     .help-card {
       background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
       border: 1px solid #333333;
@@ -619,6 +636,9 @@
         <button class="btn btn-secondary" id="updateBtn">
           Update Selected
         </button>
+        <button class="btn btn-secondary" id="updateNameBtn" style="display: none;">
+          Update Chart Name
+        </button>
         <button class="btn btn-secondary" id="updateAllBtn">
           Update All
         </button>
@@ -814,6 +834,13 @@
         return;
       }
       
+      if (msg.type === 'chart-name-updated') {
+        // Refresh the charts list to show the updated name
+        charts = msg.charts || charts;
+        renderCharts();
+        return;
+      }
+      
 
     };
     
@@ -974,6 +1001,7 @@
     function updateFormWithSelectedChart(chartInfo) {
       const chartNameInput = document.getElementById('chartName');
       const chartUrlInput = document.getElementById('chartUrl');
+      const updateNameBtn = document.getElementById('updateNameBtn');
       
       if (chartInfo) {
         // Populate form fields with selected chart data
@@ -983,6 +1011,13 @@
         // Add visual indication that fields are populated from selection
         chartNameInput.classList.add('populated');
         chartUrlInput.classList.add('populated');
+        
+        // Show the update name button
+        updateNameBtn.style.display = 'block';
+        
+        // Store the original chart info for comparison
+        chartNameInput.dataset.originalName = chartInfo.name;
+        chartNameInput.dataset.chartId = chartInfo.id;
         
         // Add a small indicator
         addStatusMessage(`📋 Form populated from selected chart: ${chartInfo.name}`, 'info');
@@ -994,6 +1029,13 @@
         // Remove visual indication
         chartNameInput.classList.remove('populated');
         chartUrlInput.classList.remove('populated');
+        
+        // Hide the update name button
+        updateNameBtn.style.display = 'none';
+        
+        // Clear stored data
+        delete chartNameInput.dataset.originalName;
+        delete chartNameInput.dataset.chartId;
       }
     }
     
@@ -1039,6 +1081,32 @@
         pluginMessage: {
           type: 'update-all-charts'
         }
+      }, '*');
+    });
+    
+    // Update chart name button
+    document.getElementById('updateNameBtn').addEventListener('click', () => {
+      const chartNameInput = document.getElementById('chartName');
+      const newName = chartNameInput.value.trim();
+      const originalName = chartNameInput.dataset.originalName;
+      const chartId = chartNameInput.dataset.chartId;
+      
+      if (!newName) {
+        addStatusMessage('❌ Chart name cannot be empty', 'error');
+        return;
+      }
+      
+      if (newName === originalName) {
+        addStatusMessage('ℹ️ Chart name unchanged', 'info');
+        return;
+      }
+      
+      parent.postMessage({ 
+        pluginMessage: { 
+          type: 'update-chart-name', 
+          chartId: chartId,
+          newName: newName 
+        } 
       }, '*');
     });
     
