@@ -201,6 +201,8 @@
       color: white;
       border: none;
       animation: fadeIn 0.3s ease;
+      font-size: 11px;
+      padding: 8px 12px;
     }
     
     #updateNameBtn:hover {
@@ -622,6 +624,9 @@
       <div class="form-group">
         <label for="chartName">Chart Name</label>
         <input type="text" id="chartName" placeholder="My Chart (optional)">
+        <button class="btn btn-secondary" id="updateNameBtn" style="display: none; margin-top: 8px; width: 100%;">
+          Update Chart Name
+        </button>
       </div>
       
       <div class="form-group">
@@ -635,9 +640,6 @@
         </button>
         <button class="btn btn-secondary" id="updateBtn">
           Update Selected
-        </button>
-        <button class="btn btn-secondary" id="updateNameBtn" style="display: none;">
-          Update Chart Name
         </button>
         <button class="btn btn-secondary" id="updateAllBtn">
           Update All
@@ -790,6 +792,10 @@
       setTimeout(() => {
         parent.postMessage({ pluginMessage: { type: 'get-selected-chart-info' } }, '*');
       }, 100);
+      
+      // Add event listener to chart name input for change detection
+      const chartNameInput = document.getElementById('chartName');
+      chartNameInput.addEventListener('input', checkNameChange);
     };
     
     // Handle messages from the plugin
@@ -838,6 +844,12 @@
         // Refresh the charts list to show the updated name
         charts = msg.charts || charts;
         renderCharts();
+        
+        // Update the original name in the input field and hide the button
+        const chartNameInput = document.getElementById('chartName');
+        chartNameInput.dataset.originalName = chartNameInput.value.trim();
+        document.getElementById('updateNameBtn').style.display = 'none';
+        
         return;
       }
       
@@ -997,6 +1009,21 @@
       addStatusMessage(message, type);
     }
     
+    // Check if chart name has changed and show/hide update button
+    function checkNameChange() {
+      const chartNameInput = document.getElementById('chartName');
+      const updateNameBtn = document.getElementById('updateNameBtn');
+      const originalName = chartNameInput.dataset.originalName;
+      const currentName = chartNameInput.value.trim();
+      
+      // Only show button if we have an original name (chart is selected) and the name has changed
+      if (originalName && currentName && currentName !== originalName) {
+        updateNameBtn.style.display = 'block';
+      } else {
+        updateNameBtn.style.display = 'none';
+      }
+    }
+    
     // Update form fields with selected chart info
     function updateFormWithSelectedChart(chartInfo) {
       const chartNameInput = document.getElementById('chartName');
@@ -1012,12 +1039,12 @@
         chartNameInput.classList.add('populated');
         chartUrlInput.classList.add('populated');
         
-        // Show the update name button
-        updateNameBtn.style.display = 'block';
-        
         // Store the original chart info for comparison
         chartNameInput.dataset.originalName = chartInfo.name;
         chartNameInput.dataset.chartId = chartInfo.id;
+        
+        // Hide the update name button initially
+        updateNameBtn.style.display = 'none';
         
         // Add a small indicator
         addStatusMessage(`📋 Form populated from selected chart: ${chartInfo.name}`, 'info');
