@@ -174,12 +174,38 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             if (charts.length === 0) {
                 throw new Error('No charts found in history');
             }
+            figma.notify('Loading pages and searching for charts...');
             // Find all chart rectangles in the entire file (all pages)
             const allRectangles = [];
+            let pagesLoaded = 0;
+            let pagesFailed = 0;
             for (const page of figma.root.children) {
                 if (page.type === 'PAGE') {
-                    const pageRectangles = page.findAll(node => node.type === 'RECTANGLE');
-                    allRectangles.push(...pageRectangles);
+                    try {
+                        // Ensure the page is loaded before searching
+                        yield page.loadAsync();
+                        const pageRectangles = page.findAll(node => node.type === 'RECTANGLE');
+                        allRectangles.push(...pageRectangles);
+                        pagesLoaded++;
+                    }
+                    catch (pageError) {
+                        console.warn(`Could not load page "${page.name}":`, pageError);
+                        pagesFailed++;
+                        // Continue with other pages even if one fails to load
+                    }
+                }
+            }
+            // If we couldn't load any pages, try just the current page
+            if (pagesLoaded === 0 && pagesFailed > 0) {
+                figma.notify('Could not load all pages. Searching current page only...');
+                try {
+                    const currentPage = figma.currentPage;
+                    yield currentPage.loadAsync();
+                    const currentPageRectangles = currentPage.findAll(node => node.type === 'RECTANGLE');
+                    allRectangles.push(...currentPageRectangles);
+                }
+                catch (currentPageError) {
+                    throw new Error('Could not load current page. Please try updating individual charts.');
                 }
             }
             let updatedCount = 0;
@@ -251,7 +277,17 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             }
         }
         catch (error) {
-            const message = 'Error updating all charts: ' + error.message;
+            let message = 'Error updating all charts: ' + error.message;
+            // Provide specific guidance for page loading errors
+            if (message.includes('findAll') || message.includes('loadAsync')) {
+                message = 'Error loading pages. Some pages may be locked or inaccessible. Try updating individual charts instead.';
+            }
+            else if (message.includes('404')) {
+                message = 'Some charts returned 404 errors. They may have been deleted or moved in Google Sheets.';
+            }
+            else if (message.includes('403')) {
+                message = 'Some charts returned access denied errors. Check their publishing settings in Google Sheets.';
+            }
             figma.notify(message, { error: true });
             try {
                 figma.ui.postMessage({ type: 'error', context: 'update-all', message });
