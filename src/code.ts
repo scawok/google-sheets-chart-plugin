@@ -48,8 +48,8 @@ async function fetchImageData(imageUrl: string): Promise<{
     throw new Error(`Network error ${response.status}: ${response.statusText}. URL: ${imageUrl}`);
   }
   
-      const headers = response.headers;
-    const contentType = headers && headers.get ? headers.get('content-type') || '' : '';
+  const headers = response.headers;
+  const contentType = headers && headers.get ? headers.get('content-type') || '' : '';
   const imageBuffer = await response.arrayBuffer();
   
   return { imageBuffer, contentType };
@@ -80,13 +80,34 @@ figma.clientStorage.getAsync('charts').then((charts: ChartData[] = []) => {
 // Listen for selection changes to update form fields
 figma.on('selectionchange', () => {
   // Send selection change event to UI
-  try { figma.ui.postMessage({ type: 'selection-changed' }); } catch {}
+  try { 
+    figma.ui.postMessage({ type: 'selection-changed' }); 
+  } catch (error) {
+    // Silently handle UI communication errors
+    console.warn('Failed to send selection change message:', error);
+  }
 });
 
-figma.ui.onmessage = async (msg) => {
+interface PluginMessage {
+  type: string;
+  url?: string;
+  name?: string;
+  chartId?: string;
+  newName?: string;
+  newUrl?: string;
+  context?: string;
+  message?: string;
+  statusType?: string;
+}
+
+figma.ui.onmessage = async (msg: PluginMessage) => {
   if (msg.type === 'insert-chart') {
     try {
       const { url, name } = msg;
+      
+      if (!url) {
+        throw new Error('URL is required for chart insertion');
+      }
       
       // Convert Google Sheets chart URL to image URL
       const imageUrl = convertToImageUrl(url);
@@ -123,7 +144,11 @@ figma.ui.onmessage = async (msg) => {
       await figma.clientStorage.setAsync('charts', charts);
       
       showNotification('✅ Chart inserted successfully!');
-      try { figma.ui.postMessage({ type: 'completion', message: '✅ Chart inserted successfully!', statusType: 'success' }); } catch {}
+      try { 
+        figma.ui.postMessage({ type: 'completion', message: '✅ Chart inserted successfully!', statusType: 'success' }); 
+      } catch (error) {
+        console.warn('Failed to send completion message:', error);
+      }
     } catch (error) {
       const message = 'Error inserting chart: ' + (error as Error).message;
       figma.notify(message, { error: true });
@@ -547,6 +572,10 @@ figma.ui.onmessage = async (msg) => {
   if (msg.type === 'test-chart-url') {
     try {
       const { url } = msg;
+      
+      if (!url) {
+        throw new Error('URL is required for testing');
+      }
       
       // Convert URL to image URL with cache-busting
       const imageUrl = convertToImageUrl(url) + `&t=${Date.now()}`;

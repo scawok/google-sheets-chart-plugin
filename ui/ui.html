@@ -1068,17 +1068,13 @@
       const originalUrl = chartUrlInput.dataset.originalUrl;
       const currentUrl = chartUrlInput.value.trim();
       
-      console.log('URL change check:', { originalUrl, currentUrl, hasOriginal: !!originalUrl, hasCurrent: !!currentUrl, isDifferent: originalUrl !== currentUrl });
-      
       // Only show button if we have an original URL (chart is selected) and the URL has changed
       if (originalUrl && currentUrl && currentUrl !== originalUrl) {
         updateUrlBtn.style.display = 'block';
         chartUrlInput.classList.add('changed');
-        console.log('Showing URL update button');
       } else {
         updateUrlBtn.style.display = 'none';
         chartUrlInput.classList.remove('changed');
-        console.log('Hiding URL update button');
       }
     }
     
@@ -1103,12 +1099,7 @@
         chartUrlInput.dataset.originalUrl = chartInfo.url;
         chartUrlInput.dataset.chartId = chartInfo.id;
         
-        console.log('Stored chart info:', { 
-          name: chartInfo.name, 
-          url: chartInfo.url, 
-          id: chartInfo.id,
-          storedUrl: chartUrlInput.dataset.originalUrl 
-        });
+
         
         // Hide the update buttons initially
         updateNameBtn.style.display = 'none';
