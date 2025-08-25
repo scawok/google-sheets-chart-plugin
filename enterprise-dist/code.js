@@ -61,11 +61,15 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
     if (msg.type === 'insert-chart') {
         try {
             const { url, name } = msg;
+            figma.notify('🔄 Downloading chart from Google Sheets...');
             // Convert Google Sheets chart URL to image URL
             const imageUrl = convertToImageUrl(url);
             // Download and validate the image data
+            figma.notify('📥 Downloading image data...');
             const { imageBuffer, contentType } = yield fetchImageData(imageUrl);
+            figma.notify('🔍 Validating image format...');
             validateImageData(imageBuffer, contentType, imageUrl);
+            figma.notify('🖼️ Creating chart in Figma...');
             const imageData = yield figma.createImage(new Uint8Array(imageBuffer));
             // Create rectangle to hold the image (no frame needed)
             const chartId = `chart_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -76,6 +80,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             // Center the image in the viewport
             figma.viewport.scrollAndZoomIntoView([rect]);
             // Store chart data
+            figma.notify('💾 Saving chart to history...');
             const charts = (yield figma.clientStorage.getAsync('charts')) || [];
             charts.push({
                 url,
@@ -84,7 +89,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 id: chartId
             });
             yield figma.clientStorage.setAsync('charts', charts);
-            figma.notify('Chart inserted successfully!');
+            figma.notify('✅ Chart inserted successfully!');
         }
         catch (error) {
             const message = 'Error inserting chart: ' + error.message;
@@ -97,6 +102,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
     }
     if (msg.type === 'update-chart') {
         try {
+            figma.notify('🔍 Looking for selected chart...');
             // Find the selected rectangle to update
             const selection = figma.currentPage.selection;
             if (selection.length === 0) {
@@ -107,6 +113,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 throw new Error('Please select a chart rectangle to update');
             }
             // Find the chart URL from stored charts by matching the rectangle name or ID
+            figma.notify('🔗 Finding chart URL in history...');
             const charts = (yield figma.clientStorage.getAsync('charts')) || [];
             const matchingChart = charts.find(chart => {
                 // Extract chart ID from rectangle name if it exists
@@ -123,25 +130,32 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 throw new Error(`No stored URL found for chart "${targetNode.name}". Please use "Insert Chart" instead.`);
             }
             // Convert URL to image URL with cache-busting parameter
+            figma.notify('🔄 Downloading updated chart from Google Sheets...');
             const imageUrl = convertToImageUrl(matchingChart.url) + `&t=${Date.now()}`;
             // Download and validate the image data
+            figma.notify('📥 Downloading image data...');
             const { imageBuffer, contentType } = yield fetchImageData(imageUrl);
+            figma.notify('🔍 Validating image format...');
             validateImageData(imageBuffer, contentType, imageUrl);
+            figma.notify('🖼️ Creating updated image...');
             const imageData = yield figma.createImage(new Uint8Array(imageBuffer));
             // Check if the image actually changed
+            figma.notify('🔍 Checking if chart has changed...');
             const currentFills = targetNode.fills;
             const oldImageHash = Array.isArray(currentFills) && currentFills.length > 0 && currentFills[0].type === 'IMAGE'
                 ? currentFills[0].imageHash
                 : null;
             if (oldImageHash === imageData.hash) {
-                figma.notify('Chart is already up to date! Make sure to save changes in Google Sheets first.');
+                figma.notify('ℹ️ Chart image unchanged. Google Sheets may not have updated the published image yet. Try re-publishing the chart in Google Sheets.');
             }
             else {
                 // Update the rectangle's fill
+                figma.notify('🔄 Updating chart in Figma...');
                 targetNode.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
-                figma.notify('Chart updated successfully!');
+                figma.notify('✅ Chart updated successfully!');
             }
             // Update last updated time
+            figma.notify('💾 Updating chart timestamp...');
             const chartIndex = charts.findIndex(chart => chart.url === matchingChart.url);
             if (chartIndex !== -1) {
                 charts[chartIndex].lastUpdated = new Date().toISOString();
@@ -174,7 +188,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             if (charts.length === 0) {
                 throw new Error('No charts found in history');
             }
-            figma.notify('Loading pages and searching for charts...');
+            figma.notify('🔍 Loading pages and searching for charts...');
             // Find all chart rectangles in the entire file (all pages)
             const allRectangles = [];
             let pagesLoaded = 0;
@@ -197,7 +211,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             }
             // If we couldn't load any pages, try just the current page
             if (pagesLoaded === 0 && pagesFailed > 0) {
-                figma.notify('Could not load all pages. Searching current page only...');
+                figma.notify('⚠️ Could not load all pages. Searching current page only...');
                 try {
                     const currentPage = figma.currentPage;
                     yield currentPage.loadAsync();
@@ -210,6 +224,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             }
             let updatedCount = 0;
             let errorCount = 0;
+            figma.notify(`🔍 Found ${allRectangles.length} rectangles. Checking for charts...`);
             for (const rect of allRectangles) {
                 // Check if this rectangle name matches any chart in our history
                 const matchingChart = charts.find(chart => {
@@ -226,6 +241,7 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                 });
                 if (matchingChart) {
                     try {
+                        figma.notify(`🔄 Updating chart: ${rect.name}...`);
                         // Convert URL to image URL with cache-busting parameter
                         const imageUrl = convertToImageUrl(matchingChart.url) + `&t=${Date.now()}`;
                         // Download and validate the image data
@@ -240,6 +256,10 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
                         if (oldImageHash !== imageData.hash) {
                             rect.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
                             updatedCount++;
+                            figma.notify(`✅ Updated: ${rect.name}`);
+                        }
+                        else {
+                            figma.notify(`ℹ️ No changes: ${rect.name}`);
                         }
                         // Update last updated time
                         const chartIndex = charts.findIndex(chart => chart.url === matchingChart.url);
@@ -267,10 +287,10 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
             // Save updated timestamps
             yield figma.clientStorage.setAsync('charts', charts);
             if (updatedCount > 0) {
-                figma.notify(`Updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} successfully across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+                figma.notify(`🎉 Successfully updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
             }
             else if (errorCount === 0) {
-                figma.notify('All charts are already up to date! Make sure to save changes in Google Sheets first.');
+                figma.notify('ℹ️ All charts unchanged. Google Sheets may not have updated the published images yet. Try re-publishing charts in Google Sheets.');
             }
             else {
                 throw new Error('No charts found to update in this file');
@@ -298,14 +318,17 @@ figma.ui.onmessage = (msg) => __awaiter(void 0, void 0, void 0, function* () {
     if (msg.type === 'test-chart-url') {
         try {
             const { url } = msg;
-            // Convert URL to image URL
-            const imageUrl = convertToImageUrl(url);
+            figma.notify('🔍 Testing chart URL...');
+            // Convert URL to image URL with cache-busting
+            const imageUrl = convertToImageUrl(url) + `&t=${Date.now()}`;
             // Test the URL by attempting to fetch the image
+            figma.notify('📥 Downloading test image...');
             const { imageBuffer, contentType } = yield fetchImageData(imageUrl);
+            figma.notify('🔍 Validating image format...');
             validateImageData(imageBuffer, contentType, imageUrl);
-            figma.notify('✅ Chart URL is working correctly!');
+            figma.notify('✅ Chart URL is working correctly! Image fetched successfully.');
             try {
-                figma.ui.postMessage({ type: 'success', message: 'Chart URL is working correctly!' });
+                figma.ui.postMessage({ type: 'success', message: 'Chart URL is working correctly! Image fetched successfully.' });
             }
             catch (_d) { }
         }
