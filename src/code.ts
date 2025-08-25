@@ -72,16 +72,23 @@ function validateImageData(imageBuffer: ArrayBuffer, contentType: string, imageU
   }
 }
 
-// Store chart data in plugin data (file-specific)
-figma.clientStorage.getAsync('charts').then((charts: ChartData[] = []) => {
-  // Add file context to the charts data
+// Helper function to send charts with file context
+async function sendChartsWithContext() {
+  const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
   const fileContext = {
     fileName: figma.root.name,
     fileKey: figma.fileKey,
     chartCount: charts.length
   };
-  figma.ui.postMessage({ type: 'load-charts', charts, fileContext });
-});
+  try {
+    figma.ui.postMessage({ type: 'load-charts', charts, fileContext });
+  } catch (error) {
+    console.warn('Failed to send charts with context:', error);
+  }
+}
+
+// Initial load of chart data with file context
+sendChartsWithContext();
 
 // Helper function to get chart data from node's plugin data
 function getChartDataFromNode(node: SceneNode): ChartData | null {
@@ -114,6 +121,12 @@ figma.on('selectionchange', () => {
     // Silently handle UI communication errors
     console.warn('Failed to send selection change message:', error);
   }
+});
+
+// Listen for file changes to refresh chart context
+figma.on('documentchange', () => {
+  // Refresh charts with updated file context when document changes
+  sendChartsWithContext();
 });
 
 interface PluginMessage {
@@ -175,6 +188,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
       charts.push(chartData);
       await figma.clientStorage.setAsync('charts', charts);
+      
+      // Refresh the charts list with updated file context
+      await sendChartsWithContext();
       
       showNotification('✅ Chart inserted successfully!');
       try { 
@@ -562,8 +578,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       showNotification(`✅ Chart URL updated from "${oldUrl}" to "${newUrl}"`);
       try { figma.ui.postMessage({ type: 'completion', message: `✅ Chart URL updated from "${oldUrl}" to "${newUrl}"`, statusType: 'success' }); } catch {}
       
-      // Send updated charts list to refresh the UI
-      try { figma.ui.postMessage({ type: 'chart-url-updated', charts }); } catch {}
+      // Refresh the charts list with updated file context
+      await sendChartsWithContext();
       
     } catch (error) {
       const message = 'Error updating chart URL: ' + (error as Error).message;
@@ -625,8 +641,8 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       showNotification(`✅ Chart name updated from "${oldName}" to "${newName}"`);
       try { figma.ui.postMessage({ type: 'completion', message: `✅ Chart name updated from "${oldName}" to "${newName}"`, statusType: 'success' }); } catch {}
       
-      // Send updated charts list to refresh the UI
-      try { figma.ui.postMessage({ type: 'chart-name-updated', charts }); } catch {}
+      // Refresh the charts list with updated file context
+      await sendChartsWithContext();
       
     } catch (error) {
       const message = 'Error updating chart name: ' + (error as Error).message;
@@ -674,6 +690,11 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
     }
   }
   
+  if (msg.type === 'refresh-charts') {
+    // Refresh charts with current file context
+    await sendChartsWithContext();
+  }
+  
   if (msg.type === 'delete-chart') {
     try {
       const { url } = msg;
@@ -682,6 +703,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       const charts: ChartData[] = await figma.clientStorage.getAsync('charts') || [];
       const filteredCharts = charts.filter(chart => chart.url !== url);
       await figma.clientStorage.setAsync('charts', filteredCharts);
+      
+      // Refresh the charts list with updated file context
+      await sendChartsWithContext();
       
       figma.notify('Chart removed from history');
     } catch (error) {

@@ -892,6 +892,11 @@
           
           tab.classList.add('active');
           document.getElementById(targetTab + '-panel').classList.add('active');
+          
+          // Refresh charts when history tab is opened
+          if (targetTab === 'history') {
+            parent.postMessage({ pluginMessage: { type: 'refresh-charts' } }, '*');
+          }
         });
       });
     }
