@@ -504,6 +504,18 @@
           <li>If updates don't appear, try saving your Google Sheets document first</li>
         </ol>
       </div>
+      
+      <div class="help-card">
+        <h3><span>🔧</span> Fixing 404 Errors:</h3>
+        <ol class="help-steps">
+          <li><strong>Chart not found (404):</strong> The chart may have been deleted or moved</li>
+          <li><strong>Solution:</strong> Re-publish the chart in Google Sheets</li>
+          <li>Open your Google Sheets document</li>
+          <li>Select the chart and click the three dots menu (⋯)</li>
+          <li>Choose "Publish chart" and click "Publish"</li>
+          <li>Copy the new URL and use "Insert Chart" instead of "Update"</li>
+        </ol>
+      </div>
     </div>
     
     <!-- History Tab -->
@@ -560,6 +572,11 @@
 
       if (msg.type === 'error') {
         showError(msg.message || 'Unknown error');
+        return;
+      }
+      
+      if (msg.type === 'success') {
+        showError(msg.message || 'Success!');
         return;
       }
     };
@@ -656,6 +673,9 @@
             <button class="btn btn-secondary" onclick="updateChart('${chart.url}')">
               Select & Update
             </button>
+            <button class="btn btn-secondary" onclick="testChartUrl('${chart.url}', '${chart.name}')">
+              Test URL
+            </button>
             <button class="btn btn-danger" onclick="deleteChart('${chart.url}')">
               Remove
             </button>
@@ -694,6 +714,17 @@
         charts = charts.filter(chart => chart.url !== url);
         renderCharts();
       }
+    }
+    
+    function testChartUrl(url, chartName) {
+      showError(`Testing URL for "${chartName}"...`);
+      
+      parent.postMessage({
+        pluginMessage: {
+          type: 'test-chart-url',
+          url: url
+        }
+      }, '*');
     }
 
     // Error panel actions

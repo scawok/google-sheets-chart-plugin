@@ -168,7 +168,17 @@ figma.ui.onmessage = async (msg) => {
       
       figma.notify('Chart updated successfully!');
     } catch (error) {
-      const message = 'Error updating chart: ' + (error as Error).message;
+      let message = 'Error updating chart: ' + (error as Error).message;
+      
+      // Provide specific guidance for common errors
+      if (message.includes('404')) {
+        message = 'Chart not found (404 error). The chart may have been deleted, moved, or is no longer published. Please re-publish the chart in Google Sheets and try again.';
+      } else if (message.includes('403')) {
+        message = 'Access denied (403 error). The chart may be private or the sharing settings have changed. Please check the chart\'s publishing settings in Google Sheets.';
+      } else if (message.includes('Network error')) {
+        message = 'Network error. Please check your internet connection and try again. If the problem persists, the chart URL may be invalid.';
+      }
+      
       figma.notify(message, { error: true });
       try { figma.ui.postMessage({ type: 'error', context: 'update', message }); } catch {}
     }
@@ -238,7 +248,18 @@ figma.ui.onmessage = async (msg) => {
             }
           } catch (error) {
             errorCount++;
-            console.error(`Failed to update chart "${rect.name}":`, error);
+            let errorMessage = (error as Error).message;
+            
+            // Provide specific guidance for common errors
+            if (errorMessage.includes('404')) {
+              errorMessage = 'Chart not found - may have been deleted or moved';
+            } else if (errorMessage.includes('403')) {
+              errorMessage = 'Access denied - check publishing settings';
+            } else if (errorMessage.includes('Network error')) {
+              errorMessage = 'Network error - check connection';
+            }
+            
+            console.error(`Failed to update chart "${rect.name}": ${errorMessage}`);
           }
         }
       }
@@ -258,6 +279,37 @@ figma.ui.onmessage = async (msg) => {
       const message = 'Error updating all charts: ' + (error as Error).message;
       figma.notify(message, { error: true });
       try { figma.ui.postMessage({ type: 'error', context: 'update-all', message }); } catch {}
+    }
+  }
+  
+  if (msg.type === 'test-chart-url') {
+    try {
+      const { url } = msg;
+      
+      // Convert URL to image URL
+      const imageUrl = convertToImageUrl(url);
+      
+      // Test the URL by attempting to fetch the image
+      const { imageBuffer, contentType } = await fetchImageData(imageUrl);
+      validateImageData(imageBuffer, contentType, imageUrl);
+      
+      figma.notify('✅ Chart URL is working correctly!');
+      try { figma.ui.postMessage({ type: 'success', message: 'Chart URL is working correctly!' }); } catch {}
+      
+    } catch (error) {
+      let message = 'Error testing chart URL: ' + (error as Error).message;
+      
+      // Provide specific guidance for common errors
+      if (message.includes('404')) {
+        message = '❌ Chart not found (404 error). The chart may have been deleted, moved, or is no longer published. Please re-publish the chart in Google Sheets.';
+      } else if (message.includes('403')) {
+        message = '❌ Access denied (403 error). The chart may be private or the sharing settings have changed. Please check the chart\'s publishing settings.';
+      } else if (message.includes('Network error')) {
+        message = '❌ Network error. Please check your internet connection.';
+      }
+      
+      figma.notify(message, { error: true });
+      try { figma.ui.postMessage({ type: 'error', context: 'test', message }); } catch {}
     }
   }
   
