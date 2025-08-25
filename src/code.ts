@@ -286,7 +286,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       if (message.includes('404')) {
         message = 'Chart not found (404 error). The chart may have been deleted, moved, or is no longer published. Please re-publish the chart in Google Sheets and try again.';
       } else if (message.includes('403')) {
-        message = 'Access denied (403 error). The chart may be private or the sharing settings have changed. Please check the chart\'s publishing settings in Google Sheets.';
+        message = 'Access denied (403 error). The chart has restricted access. Please re-publish the chart and select "Anyone with the link can view" in the publishing settings.';
       } else if (message.includes('Network error')) {
         message = 'Network error. Please check your internet connection and try again. If the problem persists, the chart URL may be invalid.';
       }
@@ -598,7 +598,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       if (message.includes('404')) {
         message = '❌ Chart not found (404 error). The chart may have been deleted, moved, or is no longer published. Please re-publish the chart in Google Sheets.';
       } else if (message.includes('403')) {
-        message = '❌ Access denied (403 error). The chart may be private or the sharing settings have changed. Please check the chart\'s publishing settings.';
+        message = '❌ Access denied (403 error). The chart has restricted access. Please re-publish the chart and select "Anyone with the link can view" in the publishing settings.';
       } else if (message.includes('Network error')) {
         message = '❌ Network error. Please check your internet connection.';
       }
