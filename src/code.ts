@@ -137,16 +137,27 @@ figma.ui.onmessage = async (msg) => {
         throw new Error(`No stored URL found for chart "${targetNode.name}". Please use "Insert Chart" instead.`);
       }
       
-      // Convert URL to image URL
-      const imageUrl = convertToImageUrl(matchingChart.url);
+      // Convert URL to image URL with cache-busting parameter
+      const imageUrl = convertToImageUrl(matchingChart.url) + `&t=${Date.now()}`;
       
       // Download and validate the image data
       const { imageBuffer, contentType } = await fetchImageData(imageUrl);
       validateImageData(imageBuffer, contentType, imageUrl);
       const imageData = await figma.createImage(new Uint8Array(imageBuffer));
       
-      // Update the rectangle's fill
-      targetNode.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
+      // Check if the image actually changed
+      const currentFills = targetNode.fills;
+      const oldImageHash = Array.isArray(currentFills) && currentFills.length > 0 && currentFills[0].type === 'IMAGE' 
+        ? (currentFills[0] as ImagePaint).imageHash 
+        : null;
+      
+      if (oldImageHash === imageData.hash) {
+        figma.notify('Chart is already up to date! Make sure to save changes in Google Sheets first.');
+      } else {
+        // Update the rectangle's fill
+        targetNode.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
+        figma.notify('Chart updated successfully!');
+      }
       
       // Update last updated time
       const chartIndex = charts.findIndex(chart => chart.url === matchingChart.url);
@@ -200,23 +211,31 @@ figma.ui.onmessage = async (msg) => {
         
         if (matchingChart) {
           try {
-            // Convert URL to image URL
-            const imageUrl = convertToImageUrl(matchingChart.url);
+            // Convert URL to image URL with cache-busting parameter
+            const imageUrl = convertToImageUrl(matchingChart.url) + `&t=${Date.now()}`;
             
             // Download and validate the image data
             const { imageBuffer, contentType } = await fetchImageData(imageUrl);
             validateImageData(imageBuffer, contentType, imageUrl);
             
             const imageData = await figma.createImage(new Uint8Array(imageBuffer));
-            rect.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
+            
+            // Check if the image actually changed
+            const currentFills = rect.fills;
+            const oldImageHash = Array.isArray(currentFills) && currentFills.length > 0 && currentFills[0].type === 'IMAGE' 
+              ? (currentFills[0] as ImagePaint).imageHash 
+              : null;
+            
+            if (oldImageHash !== imageData.hash) {
+              rect.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
+              updatedCount++;
+            }
             
             // Update last updated time
             const chartIndex = charts.findIndex(chart => chart.url === matchingChart.url);
             if (chartIndex !== -1) {
               charts[chartIndex].lastUpdated = new Date().toISOString();
             }
-            
-            updatedCount++;
           } catch (error) {
             errorCount++;
             console.error(`Failed to update chart "${rect.name}":`, error);
@@ -229,6 +248,8 @@ figma.ui.onmessage = async (msg) => {
       
       if (updatedCount > 0) {
         figma.notify(`Updated ${updatedCount} chart${updatedCount > 1 ? 's' : ''} successfully across all pages!${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+      } else if (errorCount === 0) {
+        figma.notify('All charts are already up to date! Make sure to save changes in Google Sheets first.');
       } else {
         throw new Error('No charts found to update in this file');
       }
