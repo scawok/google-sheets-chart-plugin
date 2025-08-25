@@ -33,32 +33,42 @@ async function fetchImageData(imageUrl: string): Promise<{
   imageBuffer: ArrayBuffer;
   contentType: string;
 }> {
+  console.log('[FETCH-IMAGE] Starting fetch for URL:', imageUrl);
   let response: Response;
   
   // Always use proxy for Google Docs to avoid CORS issues
   if (/^https?:\/\/docs\.google\.com\//i.test(imageUrl)) {
     const proxiedUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl.replace(/^https?:\/\//, ''))}`;
+    console.log('[FETCH-IMAGE] Using proxy for Google Docs:', proxiedUrl);
     response = await fetch(proxiedUrl, { redirect: 'follow' as RequestRedirect });
   } else {
     try {
+      console.log('[FETCH-IMAGE] Attempting direct fetch...');
       response = await fetch(imageUrl, { redirect: 'follow' as RequestRedirect });
       const headers = response.headers;
-      if (!response.ok || !(headers.get('access-control-allow-origin') || '').includes('*')) {
+      console.log('[FETCH-IMAGE] Direct fetch response status:', response.status, 'CORS header:', headers ? headers.get('access-control-allow-origin') : 'undefined');
+      if (!response.ok || !(headers && headers.get ? headers.get('access-control-allow-origin') || '' : '').includes('*')) {
         throw new Error('CORS-fallback');
       }
     } catch (e) {
+      console.log('[FETCH-IMAGE] Direct fetch failed, using proxy:', e);
       const proxiedUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl.replace(/^https?:\/\//, ''))}`;
       response = await fetch(proxiedUrl, { redirect: 'follow' as RequestRedirect });
     }
   }
   
+  console.log('[FETCH-IMAGE] Final response status:', response.status, 'Content-Type:', response.headers ? response.headers.get('content-type') : 'undefined');
+  
   if (!response.ok) {
+    console.error('[FETCH-IMAGE] Response not OK:', response.status, response.statusText);
     throw new Error(`Network error ${response.status}: ${response.statusText}. URL: ${imageUrl}`);
   }
   
   const headers = response.headers;
   const contentType = headers && headers.get ? headers.get('content-type') || '' : '';
   const imageBuffer = await response.arrayBuffer();
+  
+  console.log('[FETCH-IMAGE] Successfully fetched image, size:', imageBuffer.byteLength, 'bytes');
   
   return { imageBuffer, contentType };
 }
@@ -311,6 +321,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
     try {
       // Find the selected rectangle to update
       const selection = figma.currentPage.selection;
+      
       if (selection.length === 0) {
         throw new Error('Please select a chart rectangle to update');
       }
@@ -331,6 +342,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         sendStatusMessage('🔗 Finding chart URL in history...', 'processing');
         const storageKey = getFileStorageKey();
         const charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
+        
         chartData = charts.find(chart => {
           // Extract chart ID from rectangle name if it exists
           const idMatch = targetNode.name.match(/\(chart_[^)]+\)$/);
@@ -339,8 +351,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             return extractedId === chart.id;
           }
           // Fallback to name matching for backward compatibility
-          return targetNode.name === chart.name || 
-                 (targetNode.name === 'Google Sheets Chart' && chart.name === 'Google Sheets Chart');
+          const nameMatch = (targetNode.name || '') === (chart.name || '') || 
+                 ((targetNode.name || '') === 'Google Sheets Chart' && (chart.name || '') === 'Google Sheets Chart');
+          return nameMatch;
         }) || null;
       }
       
@@ -349,20 +362,37 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       }
       
       // Convert URL to image URL with cache-busting parameter
-      const imageUrl = convertToImageUrl(chartData.url) + `&t=${Date.now()}`;
+      const imageUrl = convertToImageUrl(chartData.url || '') + `&t=${Date.now()}`;
+      
+      // Start progress tracking
+      try { figma.ui.postMessage({ type: 'progress-start', message: 'Updating chart...', statusType: 'processing' }); } catch (error) {
+        console.warn('Failed to send progress start message:', error);
+      }
       
       // Download and validate the image data
       sendStatusMessage('🔄 Downloading updated chart from Google Sheets...', 'processing');
+      try { figma.ui.postMessage({ type: 'progress-update', percentage: 25, message: 'Downloading chart image...' }); } catch (error) {
+        console.warn('Failed to send progress update message:', error);
+      }
       const { imageBuffer, contentType } = await fetchImageData(imageUrl);
       
       sendStatusMessage('🔍 Validating image format...', 'processing');
+      try { figma.ui.postMessage({ type: 'progress-update', percentage: 50, message: 'Validating image format...' }); } catch (error) {
+        console.warn('Failed to send progress update message:', error);
+      }
       validateImageData(imageBuffer, contentType, imageUrl);
       
       sendStatusMessage('🖼️ Creating updated image...', 'processing');
+      try { figma.ui.postMessage({ type: 'progress-update', percentage: 75, message: 'Creating Figma image...' }); } catch (error) {
+        console.warn('Failed to send progress update message:', error);
+      }
       const imageData = await figma.createImage(new Uint8Array(imageBuffer));
       
       // Check if the image actually changed
       sendStatusMessage('🔍 Checking if chart has changed...', 'processing');
+      try { figma.ui.postMessage({ type: 'progress-update', percentage: 90, message: 'Checking for changes...' }); } catch (error) {
+        console.warn('Failed to send progress update message:', error);
+      }
       const currentFills = targetNode.fills;
       const oldImageHash = Array.isArray(currentFills) && currentFills.length > 0 && currentFills[0].type === 'IMAGE' 
         ? (currentFills[0] as ImagePaint).imageHash 
@@ -370,6 +400,9 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       
       // Update last updated time first
       sendStatusMessage('💾 Updating chart timestamp...', 'processing');
+      try { figma.ui.postMessage({ type: 'progress-update', percentage: 95, message: 'Updating metadata...' }); } catch (error) {
+        console.warn('Failed to send progress update message:', error);
+      }
       
       // Update timestamp in both node data and storage
       chartData.lastUpdated = new Date().toISOString();
@@ -378,19 +411,31 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       // Also update in storage if it exists there
       const storageKey = getFileStorageKey();
       const charts: ChartData[] = await figma.clientStorage.getAsync(storageKey) || [];
-      const chartIndex = charts.findIndex(chart => chart.url === chartData.url);
+      const chartIndex = charts.findIndex(chart => (chart.url || '') === (chartData.url || ''));
       if (chartIndex !== -1) {
         charts[chartIndex].lastUpdated = new Date().toISOString();
         await figma.clientStorage.setAsync(storageKey, charts);
+        console.log('[UPDATE-CHART] Updated timestamp in storage');
       }
       
       if (oldImageHash === imageData.hash) {
+        console.log('[UPDATE-CHART] Image unchanged, showing notification');
+        try { figma.ui.postMessage({ type: 'progress-complete', message: 'Chart unchanged', statusType: 'warning' }); } catch (error) {
+          console.warn('Failed to send progress complete message:', error);
+        }
         showNotification('ℹ️ Chart image unchanged. Google Sheets may not have updated the published image yet.');
         sendStatusMessage('ℹ️ Chart image unchanged. Google Sheets may not have updated the published image yet.', 'warning');
       } else {
         // Update the rectangle's fill
         sendStatusMessage('🔄 Updating chart in Figma...', 'processing');
+        try { figma.ui.postMessage({ type: 'progress-update', percentage: 100, message: 'Updating chart in Figma...' }); } catch (error) {
+          console.warn('Failed to send progress update message:', error);
+        }
         targetNode.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
+        console.log('[UPDATE-CHART] Chart updated successfully');
+        try { figma.ui.postMessage({ type: 'progress-complete', message: 'Chart updated successfully!', statusType: 'success' }); } catch (error) {
+          console.warn('Failed to send progress complete message:', error);
+        }
         showNotification('✅ Chart updated successfully!');
         try { figma.ui.postMessage({ type: 'completion', message: '✅ Chart updated successfully!', statusType: 'success' }); } catch (error) {
           console.warn('Failed to send completion message:', error);
@@ -399,6 +444,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       
       figma.notify('Chart updated successfully!');
     } catch (error) {
+      console.error('[UPDATE-CHART] Error occurred:', error);
       let message = 'Error updating chart: ' + (error as Error).message;
       
       // Provide specific guidance for common errors
@@ -410,6 +456,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         message = 'Network error. Please check your internet connection and try again. If the problem persists, the chart URL may be invalid.';
       }
       
+      console.error('[UPDATE-CHART] Final error message:', message);
       figma.notify(message, { error: true });
       try { figma.ui.postMessage({ type: 'error', context: 'update', message }); } catch (error) {
         console.warn('Failed to send error message:', error);
@@ -467,7 +514,20 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       
       sendStatusMessage(`🔍 Found ${allRectangles.length} rectangles. Checking for charts...`, 'info');
       
-      for (const rect of allRectangles) {
+      // Start progress tracking
+      try { figma.ui.postMessage({ type: 'progress-start', message: 'Updating all charts...', statusType: 'processing' }); } catch (error) {
+        console.warn('Failed to send progress start message:', error);
+      }
+      
+      for (let i = 0; i < allRectangles.length; i++) {
+        const rect = allRectangles[i];
+        
+        // Update progress
+        const progress = Math.round((i / allRectangles.length) * 100);
+        try { figma.ui.postMessage({ type: 'progress-update', percentage: progress, message: `Checking chart ${i + 1} of ${allRectangles.length}...` }); } catch (error) {
+          console.warn('Failed to send progress update message:', error);
+        }
+        
         // Check if this rectangle name matches any chart in our history
         const matchingChart = charts.find(chart => {
           // Extract chart ID from rectangle name if it exists
@@ -530,6 +590,11 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
             console.error(`Failed to update chart "${rect.name}": ${errorMessage}`);
           }
         }
+      }
+      
+      // Complete progress
+      try { figma.ui.postMessage({ type: 'progress-complete', message: 'All charts processed!', statusType: 'success' }); } catch (error) {
+        console.warn('Failed to send progress complete message:', error);
       }
       
       // Save updated timestamps
@@ -729,15 +794,22 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         throw new Error('URL is required for testing');
       }
       
+      console.log('[TEST-URL] Testing URL:', url);
+      
       // Convert URL to image URL with cache-busting
       const imageUrl = convertToImageUrl(url) + `&t=${Date.now()}`;
+      console.log('[TEST-URL] Converted image URL:', imageUrl);
       
       // Test the URL by attempting to fetch the image
       sendStatusMessage('🔍 Testing chart URL...', 'processing');
       const { imageBuffer, contentType } = await fetchImageData(imageUrl);
       
+      console.log('[TEST-URL] Successfully fetched image, size:', imageBuffer.byteLength, 'bytes, type:', contentType);
+      
       sendStatusMessage('🔍 Validating image format...', 'processing');
       validateImageData(imageBuffer, contentType, imageUrl);
+      
+      console.log('[TEST-URL] Image validation passed');
       
       showNotification('✅ Chart URL is working correctly! Image fetched successfully.');
       try { figma.ui.postMessage({ type: 'completion', message: '✅ Chart URL is working correctly! Image fetched successfully.', statusType: 'success' }); } catch (error) {
@@ -748,6 +820,7 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
       }
       
     } catch (error) {
+      console.error('[TEST-URL] Error testing URL:', error);
       let message = 'Error testing chart URL: ' + (error as Error).message;
       
       // Provide specific guidance for common errors
@@ -757,12 +830,62 @@ figma.ui.onmessage = async (msg: PluginMessage) => {
         message = '❌ Access denied (403 error). The chart has restricted access. Please re-publish the chart and select "Anyone with the link can view" in the publishing settings.';
       } else if (message.includes('Network error')) {
         message = '❌ Network error. Please check your internet connection.';
+      } else if (message.includes('CORS')) {
+        message = '❌ CORS error. The chart URL is not accessible due to cross-origin restrictions.';
       }
       
+      console.error('[TEST-URL] Final error message:', message);
       figma.notify(message, { error: true });
       try { figma.ui.postMessage({ type: 'error', context: 'test', message }); } catch (error) {
         console.warn('Failed to send error message:', error);
       }
+    }
+  }
+
+  if (msg.type === 'test-specific-url') {
+    try {
+      const testUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSeeazY7kN_my10S9yX4bhGKqud4_FRXPHKGzkvj-MwEoqzvaXWWiS7_qofFrtxV6raudAXa0R4qY_9/pubchart?oid=2067613182&format=image';
+      
+      console.log('[TEST-SPECIFIC] Testing specific URL:', testUrl);
+      
+      // Test direct fetch first
+      try {
+        console.log('[TEST-SPECIFIC] Attempting direct fetch...');
+        const directResponse = await fetch(testUrl);
+        console.log('[TEST-SPECIFIC] Direct response status:', directResponse.status, 'Content-Type:', directResponse.headers ? directResponse.headers.get('content-type') : 'undefined');
+        
+        if (directResponse.ok) {
+          const directBuffer = await directResponse.arrayBuffer();
+          console.log('[TEST-SPECIFIC] Direct fetch successful, size:', directBuffer.byteLength, 'bytes');
+        } else {
+          console.error('[TEST-SPECIFIC] Direct fetch failed with status:', directResponse.status);
+        }
+      } catch (directError) {
+        console.error('[TEST-SPECIFIC] Direct fetch error:', directError);
+      }
+      
+      // Test with our plugin's fetchImageData function
+      console.log('[TEST-SPECIFIC] Testing with plugin fetchImageData...');
+      const { imageBuffer, contentType } = await fetchImageData(testUrl);
+      
+      console.log('[TEST-SPECIFIC] Plugin fetch successful, size:', imageBuffer.byteLength, 'bytes, type:', contentType);
+      
+      // Test image validation
+      validateImageData(imageBuffer, contentType, testUrl);
+      console.log('[TEST-SPECIFIC] Image validation passed');
+      
+      // Test creating Figma image
+      const imageData = await figma.createImage(new Uint8Array(imageBuffer));
+      console.log('[TEST-SPECIFIC] Figma image created, hash:', imageData.hash);
+      
+      showNotification('✅ Specific URL test successful! All steps passed.');
+      figma.ui.postMessage({ type: 'completion', message: '✅ Specific URL test successful! All steps passed.', statusType: 'success' });
+      
+    } catch (error) {
+      console.error('[TEST-SPECIFIC] Error in specific URL test:', error);
+      const message = 'Error testing specific URL: ' + (error as Error).message;
+      figma.notify(message, { error: true });
+      figma.ui.postMessage({ type: 'error', context: 'test-specific', message });
     }
   }
   

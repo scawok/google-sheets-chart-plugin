@@ -20,7 +20,7 @@
     .header {
       background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%);
       color: white;
-      padding: 24px 20px;
+      padding: 16px 20px;
       text-align: center;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       position: relative;
@@ -40,7 +40,7 @@
     
     .header h1 {
       margin: 0;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       letter-spacing: -0.3px;
       position: relative;
@@ -569,6 +569,7 @@
     .status-current.processing {
       background: rgba(121, 184, 255, 0.1);
       border-left: 3px solid #79c0ff;
+      animation: pulse 2s ease-in-out infinite;
     }
     
     .status-current.info {
@@ -657,6 +658,108 @@
     .status-message.processing {
       border-left-color: #79c0ff;
       color: #79c0ff;
+    }
+    
+    /* Animated dots for processing status */
+    .processing-dots {
+      display: inline-block;
+      margin-left: 4px;
+    }
+    
+    .processing-dots::after {
+      content: '';
+      animation: processing-dots 1.5s infinite;
+    }
+    
+    @keyframes processing-dots {
+      0%, 20% {
+        content: '';
+      }
+      40% {
+        content: '.';
+      }
+      60% {
+        content: '..';
+      }
+      80%, 100% {
+        content: '...';
+      }
+    }
+    
+    /* Spinner animation for long operations */
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid #79c0ff;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+      margin-right: 6px;
+    }
+    
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    
+    /* Animation for current status processing */
+    .status-current.processing {
+      animation: processing-glow 2s ease-in-out infinite;
+    }
+    
+    @keyframes processing-glow {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(121, 192, 255, 0.4);
+      }
+      50% {
+        box-shadow: 0 0 0 4px rgba(121, 192, 255, 0.1);
+      }
+    }
+    
+    /* Progress bar for long operations */
+    .progress-bar {
+      width: 100%;
+      height: 4px;
+      background: #1a1a1a;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #79c0ff, #58a6ff);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    
+    /* Indeterminate progress bar */
+    .progress-indeterminate {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .progress-indeterminate::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(121, 192, 255, 0.4), transparent);
+      animation: indeterminate-progress 1.5s infinite;
+    }
+    
+    @keyframes indeterminate-progress {
+      0% {
+        left: -100%;
+      }
+      100% {
+        left: 100%;
+      }
     }
     
     .status-icon {
@@ -851,6 +954,15 @@
           <li>Choose "Publish chart" and click "Publish"</li>
           <li>Copy the new URL and use "Insert Chart" instead of "Update"</li>
         </ol>
+        <div style="margin-top: 16px; padding: 12px; background: #2a2a2a; border-radius: 8px;">
+          <p style="margin: 0 0 12px 0; font-size: 12px; color: #8a8a8a;">Debug Test:</p>
+          <button class="btn btn-secondary" onclick="testSpecificUrl()" style="width: 100%;">
+            🔍 Test Problematic URL
+          </button>
+          <p style="margin: 8px 0 0 0; font-size: 11px; color: #666666;">
+            Tests the specific URL that's giving 404 errors to help debug the issue.
+          </p>
+        </div>
       </div>
     </div>
     
@@ -965,6 +1077,21 @@
         return;
       }
       
+      if (msg.type === 'progress-start') {
+        showProgressBar(msg.message || 'Processing...', msg.statusType || 'processing');
+        return;
+      }
+      
+      if (msg.type === 'progress-update') {
+        updateProgressBar(msg.percentage || 0, msg.message);
+        return;
+      }
+      
+      if (msg.type === 'progress-complete') {
+        completeProgress(msg.message || 'Completed!', msg.statusType || 'success');
+        return;
+      }
+      
       if (msg.type === 'selection-changed') {
         // Request info about the selected chart
         parent.postMessage({ pluginMessage: { type: 'get-selected-chart-info' } }, '*');
@@ -1049,13 +1176,18 @@
       const icon = getStatusIcon(type);
       const simplifiedMessage = simplifyMessage(message);
       
+      // Add animated dots for processing messages ONLY on current status
+      const animatedText = type === 'processing' ? 
+        `${simplifiedMessage}<span class="processing-dots"></span>` : 
+        simplifiedMessage;
+      
       statusCurrent.className = `status-current ${type}`;
       statusCurrent.innerHTML = `
         <span class="status-icon">${icon}</span>
-        <span class="status-text">${simplifiedMessage}</span>
+        <span class="status-text">${animatedText}</span>
       `;
       
-      // Add to history (at the top)
+      // Add to history (at the top) - WITHOUT animation for historical messages
       const messageDiv = document.createElement('div');
       messageDiv.className = `status-message ${type}`;
       
@@ -1081,16 +1213,82 @@
       if (messages.length > 15) {
         messages[0].remove();
       }
+    }
+    
+    // Show progress bar for long operations
+    function showProgressBar(message, type = 'processing') {
+      const statusCurrent = document.getElementById('statusCurrent');
+      const icon = getStatusIcon(type);
+      const simplifiedMessage = simplifyMessage(message);
       
-      // Auto-collapse after 8 seconds if no activity
-      clearTimeout(window.autoCollapseTimeout);
-      window.autoCollapseTimeout = setTimeout(() => {
-        const statusContent = document.getElementById('statusContent');
-        if (!statusContent.classList.contains('collapsed')) {
-          statusContent.classList.add('collapsed');
-          document.getElementById('statusToggle').textContent = '+';
+      statusCurrent.className = `status-current ${type}`;
+      statusCurrent.innerHTML = `
+        <span class="status-icon">${icon}</span>
+        <span class="status-text">${simplifiedMessage}</span>
+        <div class="progress-bar progress-indeterminate">
+          <div class="progress-fill"></div>
+        </div>
+      `;
+      
+      // Add a static version to history (without progress bar)
+      const statusMessages = document.getElementById('statusMessages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `status-message ${type}`;
+      
+      const time = new Date().toLocaleTimeString();
+      
+      messageDiv.innerHTML = `
+        <span class="status-icon">${icon}</span>
+        <div class="status-text">
+          <div>${simplifiedMessage}</div>
+          <div class="status-time">${time}</div>
+        </div>
+      `;
+      
+      // Insert at the top of the list
+      if (statusMessages.firstChild) {
+        statusMessages.insertBefore(messageDiv, statusMessages.firstChild);
+      } else {
+        statusMessages.appendChild(messageDiv);
+      }
+    }
+    
+    // Update progress bar with percentage
+    function updateProgressBar(percentage, message) {
+      const statusCurrent = document.getElementById('statusCurrent');
+      const progressFill = statusCurrent.querySelector('.progress-fill');
+      
+      if (progressFill) {
+        progressFill.style.width = `${percentage}%`;
+      }
+      
+      if (message) {
+        const statusText = statusCurrent.querySelector('.status-text');
+        if (statusText) {
+          // Preserve animated dots for processing messages
+          const isProcessing = statusCurrent.classList.contains('processing');
+          const animatedText = isProcessing ? 
+            `${simplifyMessage(message)}<span class="processing-dots"></span>` : 
+            simplifyMessage(message);
+          statusText.innerHTML = animatedText;
         }
-      }, 8000);
+      }
+    }
+    
+    // Hide progress bar
+    function hideProgressBar() {
+      const statusCurrent = document.getElementById('statusCurrent');
+      const progressBar = statusCurrent.querySelector('.progress-bar');
+      
+      if (progressBar) {
+        progressBar.remove();
+      }
+    }
+    
+    // Complete progress and show final status
+    function completeProgress(message, type = 'success') {
+      hideProgressBar();
+      addStatusMessage(message, type);
     }
     
     // Simplify status messages
@@ -1443,6 +1641,16 @@
         pluginMessage: {
           type: 'test-chart-url',
           url: url
+        }
+      }, '*');
+    }
+
+    function testSpecificUrl() {
+      showError('Testing specific problematic URL...');
+      
+      parent.postMessage({
+        pluginMessage: {
+          type: 'test-specific-url'
         }
       }, '*');
     }
