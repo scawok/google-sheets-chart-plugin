@@ -234,6 +234,14 @@ figma.ui.onmessage = async (msg) => {
         ? (currentFills[0] as ImagePaint).imageHash 
         : null;
       
+      // Update last updated time first
+      sendStatusMessage('💾 Updating chart timestamp...', 'processing');
+      const chartIndex = charts.findIndex(chart => chart.url === matchingChart.url);
+      if (chartIndex !== -1) {
+        charts[chartIndex].lastUpdated = new Date().toISOString();
+        await figma.clientStorage.setAsync('charts', charts);
+      }
+      
       if (oldImageHash === imageData.hash) {
         showNotification('ℹ️ Chart image unchanged. Google Sheets may not have updated the published image yet.');
         sendStatusMessage('ℹ️ Chart image unchanged. Google Sheets may not have updated the published image yet.', 'warning');
@@ -243,14 +251,6 @@ figma.ui.onmessage = async (msg) => {
         targetNode.fills = [{ type: 'IMAGE', imageHash: imageData.hash, scaleMode: 'FIT' }];
         showNotification('✅ Chart updated successfully!');
         try { figma.ui.postMessage({ type: 'completion', message: '✅ Chart updated successfully!', statusType: 'success' }); } catch {}
-      }
-      
-      // Update last updated time
-      sendStatusMessage('💾 Updating chart timestamp...', 'processing');
-      const chartIndex = charts.findIndex(chart => chart.url === matchingChart.url);
-      if (chartIndex !== -1) {
-        charts[chartIndex].lastUpdated = new Date().toISOString();
-        await figma.clientStorage.setAsync('charts', charts);
       }
       
       figma.notify('Chart updated successfully!');
