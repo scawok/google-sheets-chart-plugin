@@ -1,99 +1,156 @@
-# Google Sheets Chart Importer - Figma Plugin
+# Google Sheets Chart Plugin for Figma
 
-A Figma plugin that allows you to import Google Sheets charts as images and update them manually when needed.
+A powerful Figma plugin that allows you to import and automatically update Google Sheets charts directly into your Figma designs.
 
-## Features
+## ✨ Features
 
-- Import Google Sheets charts as images into Figma
-- Manual update functionality (no automatic updates)
-- Store chart history for easy re-importing
-- Clean, modern UI
-- Support for custom chart names
+- **Easy Import**: Insert Google Sheets charts with a simple URL
+- **Auto Updates**: Update individual charts or all charts across all pages
+- **Smart Linking**: Charts are automatically linked to their Google Sheets source
+- **Cross-Page Updates**: Update charts across your entire Figma file
+- **Chart History**: Keep track of all your imported charts
+- **CORS Handling**: Built-in proxy support for seamless Google Sheets integration
 
-## Setup
+## 🚀 Installation
 
-1. **Install dependencies:**
+### For Development
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/scawok/google-sheets-chart-plugin.git
+   cd google-sheets-chart-plugin
+   ```
+
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. **Build the plugin:**
+3. **Build the plugin:**
    ```bash
    npm run build
+   # or
+   ./build.sh
    ```
 
-3. **Load in Figma:**
-   - Open Figma Desktop app
-   - Go to Plugins > Development > Import plugin from manifest
-   - Select the `manifest.json` file from this directory
+4. **Load in Figma:**
+   - Open Figma
+   - Go to **Plugins** > **Development** > **Import plugin from manifest**
+   - Select the `manifest.json` file from this project
 
-## How to Use
+## 📖 How to Use
 
-### Preparing Your Google Sheets Chart
+### Getting a Google Sheets Chart URL
 
 1. Open your Google Sheets document
 2. Select the chart you want to import
-3. Right-click on the chart and select "Copy chart"
-4. Or publish the chart to the web:
-   - File > Share > Publish to web
-   - Select the chart and publish
-   - Copy the published URL
+3. Click the three dots menu (⋯) on the chart
+4. Select **"Publish chart"**
+5. Choose **"Image"** format and click **"Publish"**
+6. Copy the URL (it should contain `/pubchart`)
 
-### Using the Plugin
+### Inserting a Chart
 
-1. **Insert a new chart:**
-   - Open the plugin in Figma
-   - Paste the Google Sheets chart URL
-   - Optionally add a name for the chart
-   - Click "Insert Chart"
+1. Open the plugin in Figma
+2. Paste your Google Sheets chart URL
+3. (Optional) Give your chart a name
+4. Click **"Insert Chart"**
 
-2. **Update an existing chart:**
-   - Select the chart frame in Figma
-   - Open the plugin
-   - Paste the same URL
-   - Click "Update Selected"
+### Updating Charts
 
-3. **Manage chart history:**
-   - View all previously imported charts in the "Recent Charts" section
-   - Click "Update" to refresh a specific chart
-   - Click "Remove" to delete from history
+- **Update Selected**: Select a chart in Figma, then click this button
+- **Update All**: Updates all charts in your current Figma file at once
 
-## Development
+## 🛠️ Development
 
-- **Watch mode:** `npm run watch` - Automatically rebuilds on file changes
-- **Development mode:** `npm run dev` - Builds and starts the plugin in Figma
-
-## File Structure
+### Project Structure
 
 ```
-├── manifest.json          # Plugin configuration
+google-sheets-chart-plugin/
 ├── src/
-│   └── code.ts           # Main plugin logic
+│   └── code.ts          # Main plugin logic
 ├── ui/
-│   └── ui.html           # Plugin UI
-├── dist/                 # Compiled files (generated)
-├── package.json          # Dependencies and scripts
-└── tsconfig.json         # TypeScript configuration
+│   └── ui.html          # Plugin UI
+├── manifest.json        # Plugin configuration
+├── package.json         # Dependencies
+├── tsconfig.json        # TypeScript config
+├── build.sh            # Build script
+└── README.md           # Documentation
 ```
 
-## Notes
+### Building
 
-- The plugin requires network access to Google Sheets domains
-- Charts are imported as images and won't update automatically
-- Manual updates preserve the original chart positioning and sizing
-- Chart history is stored locally in the plugin
+```bash
+# Install dependencies
+npm install
 
-## Troubleshooting
+# Build the plugin
+npm run build
 
-**Chart not loading:**
-- Ensure the Google Sheets chart is published to the web
-- Check that the URL is correct and accessible
-- Verify the chart is not private or restricted
+# Or use the build script
+./build.sh
+```
 
-**Update not working:**
-- Make sure you've selected the correct chart frame in Figma
-- Ensure you're using the same URL as the original chart
+### Key Technologies
 
-## License
+- **TypeScript** for type-safe development
+- **Figma Plugin API** for integration
+- **HTML/CSS/JavaScript** for the UI
+- **Proxy Service** (images.weserv.nl) for CORS handling
 
-MIT License
+## 🔧 Configuration
+
+The plugin uses several configuration files:
+
+- `manifest.json`: Plugin metadata and permissions
+- `tsconfig.json`: TypeScript compilation settings
+- `package.json`: Dependencies and scripts
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is open source and available under the [MIT License](LICENSE).
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **CORS Errors**: The plugin automatically handles CORS issues using a proxy service
+2. **Chart Not Found**: Make sure your Google Sheets chart is published publicly
+3. **Update Fails**: Ensure the chart URL contains `/pubchart` and is accessible
+
+### Getting Help
+
+- Check the **Help** tab in the plugin for detailed instructions
+- Review the error messages in the plugin interface
+- Open an issue on GitHub for bugs or feature requests
+
+## 📊 Features in Detail
+
+### Chart Management
+- Unique chart IDs for reliable updates
+- Automatic timestamp tracking
+- Chart history with easy access to previous charts
+
+### Update System
+- Individual chart updates
+- Batch updates across all pages
+- Error handling and progress tracking
+- Automatic fallback mechanisms
+
+### UI/UX
+- Modern, dark-themed interface
+- Tabbed navigation for different functions
+- Real-time error feedback
+- Responsive design
+
+---
+
+**Made with ❤️ for the Figma community**
