@@ -125,7 +125,7 @@
       background: #2a2a2a;
     }
     
-    .form-group input.populated {
+    .form-group input.changed {
       border-color: #4CAF50 !important;
       background: rgba(76, 175, 80, 0.05);
     }
@@ -867,6 +867,7 @@
         // Update the original name in the input field and hide the button
         const chartNameInput = document.getElementById('chartName');
         chartNameInput.dataset.originalName = chartNameInput.value.trim();
+        chartNameInput.classList.remove('changed');
         document.getElementById('updateNameBtn').style.display = 'none';
         
         return;
@@ -880,6 +881,7 @@
         // Update the original URL in the input field and hide the button
         const chartUrlInput = document.getElementById('chartUrl');
         chartUrlInput.dataset.originalUrl = chartUrlInput.value.trim();
+        chartUrlInput.classList.remove('changed');
         document.getElementById('updateUrlBtn').style.display = 'none';
         
         return;
@@ -1051,8 +1053,10 @@
       // Only show button if we have an original name (chart is selected) and the name has changed
       if (originalName && currentName && currentName !== originalName) {
         updateNameBtn.style.display = 'block';
+        chartNameInput.classList.add('changed');
       } else {
         updateNameBtn.style.display = 'none';
+        chartNameInput.classList.remove('changed');
       }
     }
     
@@ -1068,9 +1072,11 @@
       // Only show button if we have an original URL (chart is selected) and the URL has changed
       if (originalUrl && currentUrl && currentUrl !== originalUrl) {
         updateUrlBtn.style.display = 'block';
+        chartUrlInput.classList.add('changed');
         console.log('Showing URL update button');
       } else {
         updateUrlBtn.style.display = 'none';
+        chartUrlInput.classList.remove('changed');
         console.log('Hiding URL update button');
       }
     }
@@ -1086,10 +1092,6 @@
         // Populate form fields with selected chart data
         chartNameInput.value = chartInfo.name;
         chartUrlInput.value = chartInfo.url;
-        
-        // Add visual indication that fields are populated from selection
-        chartNameInput.classList.add('populated');
-        chartUrlInput.classList.add('populated');
         
         // Store the original chart info for comparison
         chartNameInput.dataset.originalName = chartInfo.name;
@@ -1114,10 +1116,6 @@
         // Clear form fields if no chart is selected
         chartNameInput.value = '';
         chartUrlInput.value = '';
-        
-        // Remove visual indication
-        chartNameInput.classList.remove('populated');
-        chartUrlInput.classList.remove('populated');
         
         // Hide the update buttons
         updateNameBtn.style.display = 'none';
