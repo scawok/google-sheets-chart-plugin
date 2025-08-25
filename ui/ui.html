@@ -636,7 +636,7 @@
     <!-- Insert Chart Tab -->
     <div class="tab-panel active" id="insert-panel">
       <div class="form-group">
-        <label for="chartName">Chart Name</label>
+        <label for="chartName" id="chartNameLabel">New Chart Name</label>
         <input type="text" id="chartName" placeholder="My Chart (optional)">
         <button class="btn btn-secondary" id="updateNameBtn" style="display: none; margin-top: 8px; width: 100%;">
           Update Chart Name
@@ -644,7 +644,7 @@
       </div>
       
       <div class="form-group">
-        <label for="chartUrl">Google Sheets Chart URL</label>
+        <label for="chartUrl" id="chartUrlLabel">New Google Sheets Chart URL</label>
         <input type="text" id="chartUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
         <button class="btn btn-secondary" id="updateUrlBtn" style="display: none; margin-top: 8px; width: 100%;">
           Update Chart URL
@@ -1086,6 +1086,8 @@
     function updateFormWithSelectedChart(chartInfo) {
       const chartNameInput = document.getElementById('chartName');
       const chartUrlInput = document.getElementById('chartUrl');
+      const chartNameLabel = document.getElementById('chartNameLabel');
+      const chartUrlLabel = document.getElementById('chartUrlLabel');
       const updateNameBtn = document.getElementById('updateNameBtn');
       const updateUrlBtn = document.getElementById('updateUrlBtn');
       const insertBtn = document.getElementById('insertBtn');
@@ -1116,6 +1118,10 @@
         insertBtn.textContent = 'Update Selected Chart';
         insertBtn.dataset.mode = 'update';
         
+        // Update field labels to indicate selected chart
+        chartNameLabel.textContent = 'Selected Chart Name';
+        chartUrlLabel.textContent = 'Selected Google Sheets Chart URL';
+        
         // Add a small indicator
         addStatusMessage(`📋 Form populated from selected chart: ${chartInfo.name}`, 'info');
       } else {
@@ -1130,6 +1136,10 @@
         // Change main button back to "Insert Chart"
         insertBtn.textContent = 'Insert Chart';
         insertBtn.dataset.mode = 'insert';
+        
+        // Update field labels to indicate new chart
+        chartNameLabel.textContent = 'New Chart Name';
+        chartUrlLabel.textContent = 'New Google Sheets Chart URL';
         
         // Clear stored data
         delete chartNameInput.dataset.originalName;
